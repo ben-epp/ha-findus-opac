@@ -64,6 +64,9 @@ asks for the new password.
 | Auto-renew | off | Automatically request renewal for renewable items that are due soon |
 | Auto-renew window | 2 days | Items due within this many days (0 = only on the due date) |
 | Auto-renew only | all | Restrict to media types, e.g. only Tonies and CDs |
+| Notify | – | Notify services, e.g. `mobile_app_my_phone`; empty = no notifications |
+| Notification time | 08:00 | When the daily due-date digest is sent |
+| Notify about | all | Due soon, due today, overdue, renewal, library card expiry |
 
 ### Auto-renew
 
@@ -155,48 +158,65 @@ or from auto-renew (`trigger: auto`):
 }
 ```
 
-## Automations
+## Notifications
 
-**Reminder 2 days before the due date:**
+The integration sends notifications itself – no automation needed. Enable them under
+**Settings → Devices & services → Findus → Configure**: pick one or more notify services
+under "Notify" (e.g. the companion app's `mobile_app_my_phone`), a time and the events.
 
-```yaml
-automation:
-  - alias: Library – due in 2 days
-    triggers:
-      - trigger: numeric_state
-        entity_id: sensor.lena_days_until_next_due
-        below: 3
-    actions:
-      - action: notify.mobile_app_phone
-        data:
-          title: Library
-          message: >
-            {{ states('sensor.lena_loans') }} items, next due
-            {{ states('sensor.lena_next_due_date') }}.
+Every day at that time the integration syncs the account and sends **one** message per
+account – only when there is something new. If Home Assistant was off or restarting at that
+time, the digest is sent right after startup (once per day):
+
+| Event | When | How often |
+|---|---|---|
+| Due soon | within the "due soon" window (default 3 days) | once per item and due date |
+| Due today | on the due date | once per item and due date |
+| Overdue | after the due date | daily until returned |
+| Renewal | right after a renewal (also automatic ones) | every time |
+| Library card expires | 30 and 7 days before the card expires | once each |
+
+Example:
+
+```text
+Library: Kids
+Overdue for 2 days: Whales & Dolphins
+Due today: The little dragon (renewable)
+Due Sun 8 Nov: Sing-along songs (renewable)
 ```
 
-**Renew automatically:** no automation needed any more – enable the "Auto-renew" option
-(integration → Configure), see [Auto-renew](#auto-renew).
+A renewed item with a new due date is reported again for the new date. What was already
+sent is remembered across restarts.
 
-**Notify after renewing:**
+**"Renew" button in the notification:** companion-app targets (`mobile_app_…`, Android and
+iOS) get a "Renew" button when the message lists renewable items. Tapping it requests renewal
+for everything currently renewable; the result arrives as a separate message. Other notify
+services (email, Telegram, …) get the text only.
+
+## Automations
+
+Due dates and renewals no longer need an automation: see [Notifications](#notifications) and
+[Auto-renew](#auto-renew). For your own flows all sensors and the `findus_opac_renewal` event
+are available, e.g. a spoken reminder the evening before:
 
 ```yaml
 automation:
-  - alias: Library – renewal reported
+  - alias: Library – announce items due tomorrow
     triggers:
-      - trigger: event
-        event_type: findus_opac_renewal
+      - trigger: time
+        at: "18:30:00"
+    conditions:
+      - condition: numeric_state
+        entity_id: sensor.lena_days_until_next_due
+        below: 2
     actions:
-      - action: notify.mobile_app_phone
+      - action: tts.speak
+        target:
+          entity_id: tts.home_assistant_cloud
         data:
-          title: >
-            Library {{ trigger.event.data.account_name }}
-            {{ '(auto)' if trigger.event.data.trigger == 'auto' else '' }}
+          media_player_entity_id: media_player.kitchen
           message: >
-            {% for i in trigger.event.data['items'] %}
-            {{ i.title }}: {{ 'renewed until ' ~ i.new_due if i.status == 'renewed'
-               else 'request submitted' }}
-            {% endfor %}
+            {{ states('sensor.lena_due_soon') }} library items are due tomorrow.
 ```
 
 Entity IDs depend on the account name and system language – check the device page.

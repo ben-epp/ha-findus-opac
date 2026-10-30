@@ -67,6 +67,9 @@ fragt Home Assistant automatisch nach dem neuen Passwort.
 | Automatisch verlängern | aus | Verlängerbare Medien automatisch beantragen, wenn sie bald fällig sind |
 | Zeitraum für automatisches Verlängern | 2 Tage | Medien, die innerhalb dieser Tage fällig sind (0 = erst am Rückgabetag) |
 | Nur automatisch verlängern | alle | Auf Medienarten beschränken, z. B. nur Tonies und CDs |
+| Benachrichtigen | – | Notify-Dienste, z. B. `mobile_app_mein_handy`; leer = keine Benachrichtigungen |
+| Uhrzeit der Benachrichtigung | 08:00 | Wann die tägliche Fristen-Übersicht kommt |
+| Benachrichtigen bei | alle | Bald fällig, heute fällig, überfällig, Verlängerung, Ausweis läuft ab |
 
 ### Automatisch verlängern
 
@@ -162,49 +165,69 @@ Wird nach jedem Verlängerungsversuch ausgelöst – über Button, Dienst, Karte
 }
 ```
 
-## Automationen
+## Benachrichtigungen
 
-**Erinnerung 2 Tage vor der Rückgabe:**
+Die Integration benachrichtigt selbst – ohne eigene Automation. Einschalten unter
+**Einstellungen → Geräte & Dienste → Findus → Konfigurieren**: bei „Benachrichtigen“ einen
+oder mehrere Notify-Dienste wählen (z. B. `mobile_app_mein_handy` der Companion-App), eine
+Uhrzeit und die gewünschten Anlässe.
 
-```yaml
-automation:
-  - alias: Bücherei – Rückgabe in 2 Tagen
-    triggers:
-      - trigger: numeric_state
-        entity_id: sensor.lena_tage_bis_zur_ruckgabe
-        below: 3
-    actions:
-      - action: notify.mobile_app_handy
-        data:
-          title: Bücherei
-          message: >
-            {{ states('sensor.lena_ausleihen') }} Medien, nächste Rückgabe am
-            {{ states('sensor.lena_nachste_ruckgabe') }}.
+Jeden Tag zur eingestellten Uhrzeit gleicht die Integration das Konto ab und schickt **eine**
+Nachricht pro Konto – nur wenn es etwas Neues gibt. War Home Assistant zur Uhrzeit aus oder
+im Neustart, kommt die Übersicht gleich nach dem Start nach (einmal pro Tag):
+
+| Anlass | Wann | Wie oft |
+|---|---|---|
+| Bald fällig | innerhalb des Zeitraums „bald fällig“ (Standard 3 Tage) | einmal je Medium und Rückgabedatum |
+| Heute fällig | am Rückgabetag | einmal je Medium und Rückgabedatum |
+| Überfällig | nach dem Rückgabetag | täglich, bis das Medium zurück ist |
+| Verlängerung | sofort nach einer (auch automatischen) Verlängerung | jedes Mal |
+| Ausweis läuft ab | 30 und 7 Tage vor Ablauf des Ausweises | je einmal |
+
+Beispiel:
+
+```text
+Bücherei: Kinder
+Überfällig seit 2 Tagen: Wieso? Weshalb? Warum? – Wale & Delfine
+Heute fällig: Der kleine Drache (verlängerbar)
+Fällig am So., 8.11.: Lieder zum Mitsingen (verlängerbar)
 ```
 
-**Automatisch verlängern:** dafür braucht es keine Automation mehr – einfach die Option
-„Automatisch verlängern“ einschalten (Integration → Konfigurieren), siehe
-[Automatisch verlängern](#automatisch-verlängern).
+Wird ein Medium verlängert und bekommt dadurch ein neues Rückgabedatum, wird es zum neuen
+Datum wieder gemeldet. Was schon gemeldet wurde, merkt sich die Integration auch über
+Neustarts hinweg.
 
-**Benachrichtigung nach dem Verlängern:**
+**Knopf „Verlängern“ in der Benachrichtigung:** an Companion-App-Geräte
+(`mobile_app_…`, Android und iOS) kommt die Nachricht mit einem Knopf „Verlängern“, wenn
+darin verlängerbare Medien stehen. Ein Tipp darauf beantragt die Verlängerung für alle
+gerade verlängerbaren Medien; das Ergebnis kommt als eigene Nachricht. Andere Notify-Dienste
+(E-Mail, Telegram, …) bekommen nur den Text.
+
+## Automationen
+
+Für Fristen und Verlängerungen braucht es keine Automation mehr: siehe
+[Benachrichtigungen](#benachrichtigungen) und [Automatisch verlängern](#automatisch-verlängern).
+Für eigene Abläufe stehen alle Sensoren und das Ereignis `findus_opac_renewal` bereit, z. B.
+eine Sprachansage am Vorabend:
 
 ```yaml
 automation:
-  - alias: Bücherei – Verlängerung gemeldet
+  - alias: Bücherei – morgen fällig ansagen
     triggers:
-      - trigger: event
-        event_type: findus_opac_renewal
+      - trigger: time
+        at: "18:30:00"
+    conditions:
+      - condition: numeric_state
+        entity_id: sensor.lena_tage_bis_zur_ruckgabe
+        below: 2
     actions:
-      - action: notify.mobile_app_handy
+      - action: tts.speak
+        target:
+          entity_id: tts.home_assistant_cloud
         data:
-          title: >
-            Bücherei {{ trigger.event.data.account_name }}
-            {{ '(automatisch)' if trigger.event.data.trigger == 'auto' else '' }}
+          media_player_entity_id: media_player.kueche
           message: >
-            {% for i in trigger.event.data['items'] %}
-            {{ i.title }}: {{ 'verlängert bis ' ~ i.new_due if i.status == 'renewed'
-               else 'Antrag gestellt' }}
-            {% endfor %}
+            Morgen müssen {{ states('sensor.lena_bald_fallig') }} Medien zur Bücherei.
 ```
 
 Die Entity-IDs hängen vom Kontonamen und der Systemsprache ab – auf der Geräteseite nachsehen.

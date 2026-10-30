@@ -48,14 +48,20 @@
           "due_soon_days": "Zeitraum für „bald fällig“",
           "auto_renew": "Automatisch verlängern",
           "auto_renew_days": "Zeitraum für automatisches Verlängern",
-          "auto_renew_categories": "Nur automatisch verlängern"
+          "auto_renew_categories": "Nur automatisch verlängern",
+          "notify_targets": "Benachrichtigen",
+          "notify_time": "Uhrzeit der Benachrichtigung",
+          "notify_events": "Benachrichtigen bei"
         },
         "data_description": {
           "scan_hours": "Stunden zwischen zwei Kontoabfragen. Findus wird von der Bücherei nur wenige Male am Tag aktualisiert.",
           "due_soon_days": "Medien, die innerhalb so vieler Tage fällig sind, gelten als bald fällig.",
           "auto_renew": "Verlängerung für verlängerbare Medien automatisch beantragen, wenn sie bald fällig sind.",
           "auto_renew_days": "Medien verlängern, die innerhalb so vieler Tage fällig sind (0 = erst am Rückgabetag).",
-          "auto_renew_categories": "Automatisches Verlängern auf diese Medienarten beschränken. Keine Auswahl = alle."
+          "auto_renew_categories": "Automatisches Verlängern auf diese Medienarten beschränken. Keine Auswahl = alle.",
+          "notify_targets": "Notify-Dienste, an die gesendet wird, z. B. mobile_app_mein_handy. Keine Auswahl = keine Benachrichtigungen.",
+          "notify_time": "Tägliche Uhrzeit für die Fristen-Übersicht.",
+          "notify_events": "Bald fällig und heute fällig kommen einmal je Medium, überfällig einmal täglich, Verlängerungen sofort, Ausweis-Ablauf 30 und 7 Tage vorher."
         }
       }
     }
@@ -161,6 +167,15 @@
         "cd": "CDs",
         "video": "Filme",
         "game": "Spiele"
+      }
+    },
+    "notify_events": {
+      "options": {
+        "due_soon": "Bald fällig",
+        "due_today": "Heute fällig",
+        "overdue": "Überfällig (täglich)",
+        "renewed": "Verlängerung",
+        "card_expiry": "Ausweis läuft ab"
       }
     }
   }

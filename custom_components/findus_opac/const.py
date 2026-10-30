@@ -21,6 +21,17 @@ CONF_AUTO_RENEW_DAYS = "auto_renew_days"
 CONF_AUTO_RENEW_CATEGORIES = "auto_renew_categories"  # empty = all categories
 DEFAULT_AUTO_RENEW_DAYS = 2
 
+# Notifications (options); empty targets = notifications off
+CONF_NOTIFY_TARGETS = "notify_targets"
+CONF_NOTIFY_TIME = "notify_time"
+CONF_NOTIFY_EVENTS = "notify_events"
+DEFAULT_NOTIFY_TIME = "08:00:00"
+NOTIFY_EVENTS = ("due_soon", "due_today", "overdue", "renewed", "card_expiry")
+# mobile_app action id prefix; the config entry id is appended
+NOTIFY_ACTION_PREFIX = "FINDUS_OPAC_RENEW_"
+# Sent-notification keys older than this are pruned from storage
+NOTIFY_KEEP_DAYS = 60
+
 # Library card expiry: "expires soon" binary sensor turns on this many days before.
 CARD_EXPIRY_WARN_DAYS = 30
 

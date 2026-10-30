@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 – unreleased
+
+- Eingebaute Benachrichtigungen (Optionen „Benachrichtigen“, Uhrzeit, Anlässe): tägliche
+  Übersicht zu bald fälligen, heute fälligen und überfälligen Medien, Hinweis vor Ablauf des
+  Ausweises (30 und 7 Tage), Meldung nach jeder Verlängerung. Jeder Anlass nur einmal (überfällig
+  täglich), auch über Neustarts hinweg. Verpasste Uhrzeit (HA aus/Neustart) wird nach dem
+  Start nachgeholt.
+- Companion-App: Knopf „Verlängern“ direkt in der Benachrichtigung.
+
 ## 0.3.2 – unreleased
 
 - Karte: aufklappbare Gruppen nach Rückgabedatum oder Medienart (`group_by`, Standard

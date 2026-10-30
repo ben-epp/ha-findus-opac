@@ -14,6 +14,9 @@ from custom_components.findus_opac.const import (
     CONF_AUTO_RENEW_CATEGORIES,
     CONF_AUTO_RENEW_DAYS,
     CONF_DUE_SOON_DAYS,
+    CONF_NOTIFY_EVENTS,
+    CONF_NOTIFY_TARGETS,
+    CONF_NOTIFY_TIME,
     CONF_SCAN_HOURS,
     CONF_SECRET,
     CONF_SUBDOMAIN,
@@ -155,6 +158,9 @@ async def test_options_flow_reloads(hass, opac, loaded_entry):
         CONF_AUTO_RENEW: False,
         CONF_AUTO_RENEW_DAYS: 2,
         CONF_AUTO_RENEW_CATEGORIES: [],
+        CONF_NOTIFY_TARGETS: [],
+        CONF_NOTIFY_TIME: "08:00:00",
+        CONF_NOTIFY_EVENTS: ["due_soon", "due_today", "overdue", "renewed", "card_expiry"],
     }
     coordinator = loaded_entry.runtime_data
     assert coordinator.update_interval == timedelta(hours=12)
@@ -178,3 +184,26 @@ async def test_options_flow_saves_auto_renew(hass, opac, loaded_entry):
     assert loaded_entry.options[CONF_AUTO_RENEW] is True
     assert loaded_entry.options[CONF_AUTO_RENEW_DAYS] == 4
     assert loaded_entry.options[CONF_AUTO_RENEW_CATEGORIES] == ["tonie", "cd"]
+
+
+async def test_options_flow_saves_notifications(hass, opac, loaded_entry):
+    hass.services.async_register("notify", "mobile_app_phone", lambda call: None)
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    schema = result["data_schema"].schema
+    targets_selector = next(v for k, v in schema.items() if k == CONF_NOTIFY_TARGETS)
+    assert "mobile_app_phone" in targets_selector.config["options"]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_SCAN_HOURS: 6,
+            CONF_DUE_SOON_DAYS: 3,
+            CONF_NOTIFY_TARGETS: ["mobile_app_phone"],
+            CONF_NOTIFY_TIME: "07:30:00",
+            CONF_NOTIFY_EVENTS: ["due_today"],
+        },
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert loaded_entry.options[CONF_NOTIFY_TARGETS] == ["mobile_app_phone"]
+    assert loaded_entry.options[CONF_NOTIFY_TIME] == "07:30:00"
+    assert loaded_entry.options[CONF_NOTIFY_EVENTS] == ["due_today"]

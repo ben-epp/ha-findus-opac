@@ -48,14 +48,20 @@
           "due_soon_days": "Due soon window",
           "auto_renew": "Auto-renew",
           "auto_renew_days": "Auto-renew window",
-          "auto_renew_categories": "Auto-renew only"
+          "auto_renew_categories": "Auto-renew only",
+          "notify_targets": "Notify",
+          "notify_time": "Notification time",
+          "notify_events": "Notify about"
         },
         "data_description": {
           "scan_hours": "Hours between account checks. Findus is only refreshed by the library a few times a day.",
           "due_soon_days": "Items due within this many days count as due soon.",
           "auto_renew": "Automatically request renewal for items that can be renewed and are due soon.",
           "auto_renew_days": "Renew items due within this many days (0 = only on the due date).",
-          "auto_renew_categories": "Restrict auto-renew to these media types. Nothing selected = all types."
+          "auto_renew_categories": "Restrict auto-renew to these media types. Nothing selected = all types.",
+          "notify_targets": "Notify services to send to, e.g. mobile_app_my_phone. Nothing selected = notifications off.",
+          "notify_time": "Daily time for the due-date digest.",
+          "notify_events": "Due soon and due today are sent once per item, overdue once a day, renewals when they happen, card expiry 30 and 7 days ahead."
         }
       }
     }
@@ -161,6 +167,15 @@
         "cd": "CDs",
         "video": "Videos",
         "game": "Games"
+      }
+    },
+    "notify_events": {
+      "options": {
+        "due_soon": "Due soon",
+        "due_today": "Due today",
+        "overdue": "Overdue (daily)",
+        "renewed": "Renewal",
+        "card_expiry": "Library card expires"
       }
     }
   }
