@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="utf-8"><title>Stadtbücherei Musterstadt, Leserkonto</title></head>
+<body>
+<!-- Synthetic fixture: structure copied from a real Findus Leserkonto page (findus.pl V20.269), all data invented. -->
+<div id="findus_leserkonto_reserviert">
+<h2 class="findus_leserkonto">Vorbestellte Medien</h2>
+<table class="findus_leserkonto zebra" id="findus_leserkonto_reservierungen_tabelle">
+  <tr>
+  <th>Autor</th>
+  <th>Titel</th>
+  <th>Medienart</th>
+  <th>Bemerkung</th>
+  </tr>
+</table>
+</div>
+    <!-- Start Form fuer Verlaengerungsantraege -->
+    
+    <form method="POST" action="https://musterstadt.findus-internet-opac.de/cgi-bin/findus.fcgi.pl">
+    <input type="hidden" name="customer" value="musterstadt">
+    <input type="hidden" name="leserkonto" value="1" />
+    <input type="hidden" name="lesernr" value="12345678" />
+    <input type="hidden" name="gebdat" value="2000-01-01" />
+    <input type="hidden" name="formburnerid" value="2026-10-30T12:00:00*00000000000000000000000000000000" />
+    <input type="hidden" name="verlaengerungsantrag" value="1" />
+
+    <table class="findus_leserkonto zebra tablesorter" id="findus_leserkonto_ausgeliehen_tabelle">
+      <thead>
+      <tr>
+      <th class="spaltelfdnr">Nr</th>
+      <th class="spalteautor">Autor</th>
+      <th class="spaltetitel">Titel</th>
+      <th class="spaltemedienart">Medien&shy;art</th>
+      <th class="spalteausleihfrist">Ausleihfrist</th>
+      <th class="spalteverlaengerung">Verl&auml;ngerung<br />beantragen</th>
+      </tr>
+      </thead>
+      <tbody>
+
+      <!-- ausgeliehene_mednr = 0900000101 -->
+      
+      <tr class="odd verlaengerung_ist_moeglich_ja">
+      <td class="spaltelfdnr">
+          
+      </td>
+      <td class="spalteautor">
+          <span class="sortierhinweis">Musterfrau, Erika</span>
+          <a href="https://musterstadt.findus-internet-opac.de/cgi-bin/findus.fcgi.pl?suchfeld1=autor&customer=musterstadt">Musterfrau, Erika</a>
+      </td>
+      <td class="spaltetitel">
+          <span class="sortierhinweis">Der kleine Drache</span>
+          <b>Der kleine Drache</b>
+          <br />Musterverlag, Musterstadt (2024)
+          <br /><span class="standort_ueberschrift">Standort:</span><span class="standort_info">Tonies</span>
+      </td>
+      <td class="spaltemedienart">
+          <span class="sortierhinweis">Tonie</span>
+          Tonie<br /><br />
+      </td>
+      <td class="spalteausleihfrist">
+          <span class="sortierhinweis">2026-11-06</span>
+          6.11.2026
+      </td>
+                <td class="spalteverlaengerung">
+<span class="sortierhinweis">20 = verlaengerung ist moeglich</span>
+<input type="checkbox" name="verlaengere_nr_0900000101" value="1" class="verlaengerungshaken"/>
+&nbsp;&nbsp;
+<span class="verlaengerungshaken_text hakennein">Soll verl&auml;ngert werden...</span>
+                </td>
+      </tr>
+
+      <!-- ausgeliehene_mednr = 0900000102 -->
+      
+      <tr class="even verlaengerung_ist_moeglich_ja">
+      <td class="spaltelfdnr">
+          
+      </td>
+      <td class="spalteautor">
+          <span class="sortierhinweis">Beispiel, Max</span>
+          <a href="https://musterstadt.findus-internet-opac.de/cgi-bin/findus.fcgi.pl?suchfeld1=autor&customer=musterstadt">Beispiel, Max</a>
+      </td>
+      <td class="spaltetitel">
+          <span class="sortierhinweis">Lieder zum Mitsingen</span>
+          <b>Lieder zum Mitsingen</b>
+          <br />Musterverlag, Musterstadt (2024)
+          <br /><span class="standort_ueberschrift">Standort:</span><span class="standort_info">Musik</span>
+      </td>
+      <td class="spaltemedienart">
+          <span class="sortierhinweis">CD</span>
+          CD<br /><br />
+      </td>
+      <td class="spalteausleihfrist">
+          <span class="sortierhinweis">2026-11-08</span>
+          8.11.2026
+      </td>
+                <td class="spalteverlaengerung">
+<span class="sortierhinweis">20 = verlaengerung ist moeglich</span>
+<input type="checkbox" name="verlaengere_nr_0900000102" value="1" class="verlaengerungshaken"/>
+&nbsp;&nbsp;
+<span class="verlaengerungshaken_text hakennein">Soll verl&auml;ngert werden...</span>
+                </td>
+      </tr>
+
+      <!-- ausgeliehene_mednr = 0900000103 -->
+      
+      <tr class="odd verlaengerung_ist_moeglich_nein">
+      <td class="spaltelfdnr">
+          
+      </td>
+      <td class="spalteautor">
+          <span class="sortierhinweis">Muster, Hans</span>
+          <a href="https://musterstadt.findus-internet-opac.de/cgi-bin/findus.fcgi.pl?suchfeld1=autor&customer=musterstadt">Muster, Hans</a>
+      </td>
+      <td class="spaltetitel">
+          <span class="sortierhinweis">Abenteuer im Wald</span>
+          <b>Abenteuer im Wald</b>
+          <br />Musterverlag, Musterstadt (2024)
+          <br /><span class="standort_ueberschrift">Standort:</span><span class="standort_info">Kinder</span>
+      </td>
+      <td class="spaltemedienart">
+          <span class="sortierhinweis">Kinder- und Jugendliteratur</span>
+          Kinder- und Jugendliteratur<br /><br />
+      </td>
+      <td class="spalteausleihfrist">
+          <span class="sortierhinweis">2026-11-27</span>
+          27.11.2026
+      </td>
+                <td class="spalteverlaengerung">
+      <span class="sortierhinweis">10 = verlaengerung nicht moeglich</span>
+        <p>Verl&auml;ngerung ist nicht m&ouml;glich</p>
+          <ul>
+              <li>Verl&auml;ngerung ist <b>noch nicht</b> m&ouml;glich. Die Verl&auml;ngerung kann <b>erst 14 Tage</b> vor der R&uuml;ckgabefrist beantragt werden</li>
+          </ul>
+                </td>
+      </tr>
+
+      <!-- ausgeliehene_mednr = 0900000104 -->
+      
+      <tr class="even verlaengerung_ist_moeglich_nein">
+      <td class="spaltelfdnr">
+          
+      </td>
+      <td class="spalteautor">
+          <span class="sortierhinweis">Probe, Anna</span>
+          <a href="https://musterstadt.findus-internet-opac.de/cgi-bin/findus.fcgi.pl?suchfeld1=autor&customer=musterstadt">Probe, Anna</a>
+      </td>
+      <td class="spaltetitel">
+          <span class="sortierhinweis">Wale &amp; Delfine</span>
+          <b>Wale &amp; Delfine</b>
+          <br />Musterverlag, Musterstadt (2024)
+          <br /><span class="standort_ueberschrift">Standort:</span><span class="standort_info">Sachbuch</span>
+      </td>
+      <td class="spaltemedienart">
+          <span class="sortierhinweis">Sachbuch Jugend</span>
+          Sachbuch Jugend<br /><br />
+      </td>
+      <td class="spalteausleihfrist">
+          <span class="sortierhinweis">2026-10-20</span>
+          20.10.2026
+      </td>
+                <td class="spalteverlaengerung">
+      <span class="sortierhinweis">10 = verlaengerung nicht moeglich</span>
+        <p>Verl&auml;ngerung ist nicht m&ouml;glich</p>
+          <ul>
+              <li>Das Medium ist vorbestellt.</li>
+          </ul>
+                </td>
+      </tr>
+
+      <!-- ausgeliehene_mednr = 0900000105 -->
+      
+      <tr class="odd verlaengerung_ist_moeglich_nein">
+      <td class="spaltelfdnr">
+          
+      </td>
+      <td class="spalteautor">
+          <span class="sortierhinweis"></span>
+          <a href="https://musterstadt.findus-internet-opac.de/cgi-bin/findus.fcgi.pl?suchfeld1=autor&customer=musterstadt"></a>
+      </td>
+      <td class="spaltetitel">
+          <span class="sortierhinweis">Ein Film für Kinder</span>
+          <b>Ein Film für Kinder</b>
+          <br />Musterverlag, Musterstadt (2024)
+          <br /><span class="standort_ueberschrift">Standort:</span><span class="standort_info">Filme</span>
+      </td>
+      <td class="spaltemedienart">
+          <span class="sortierhinweis">DVD</span>
+          DVD<br /><br />
+      </td>
+      <td class="spalteausleihfrist">
+          <span class="sortierhinweis">2026-11-27</span>
+          27.11.2026
+      </td>
+                <td class="spalteverlaengerung">
+      <span class="sortierhinweis">10 = verlaengerung nicht moeglich</span>
+        <p>Verl&auml;ngerung ist nicht m&ouml;glich</p>
+          <ul>
+              <li>Maximale Anzahl der Verl&auml;ngerungen erreicht.</li>
+          </ul>
+                </td>
+      </tr>
+
+      </tbody>
+    </table>
+        <a name="verlaengern_submit"></a>
+        <input name="submit" class="verlaengern-submit" value=" " type="submit"  />
+    </form>
+</body>
+</html>

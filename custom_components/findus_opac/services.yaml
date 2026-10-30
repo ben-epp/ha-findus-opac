@@ -1,0 +1,12 @@
+renew:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: findus_opac
+    media_ids:
+      required: false
+      selector:
+        text:
+          multiple: true

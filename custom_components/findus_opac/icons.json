@@ -1,0 +1,28 @@
+{
+  "entity": {
+    "sensor": {
+      "loans": { "default": "mdi:bookshelf" },
+      "book": { "default": "mdi:book-open-variant" },
+      "tonie": { "default": "mdi:account-music" },
+      "cd": { "default": "mdi:disc" },
+      "video": { "default": "mdi:filmstrip" },
+      "game": { "default": "mdi:gamepad-variant" },
+      "next_due": { "default": "mdi:calendar-clock" },
+      "days_left": { "default": "mdi:timer-sand" },
+      "due_today": { "default": "mdi:calendar-today" },
+      "due_soon": { "default": "mdi:calendar-alert" },
+      "overdue": { "default": "mdi:alert-circle" },
+      "renewable": { "default": "mdi:autorenew" }
+    },
+    "binary_sensor": {
+      "has_overdue": { "default": "mdi:alert" },
+      "can_renew": { "default": "mdi:autorenew" }
+    },
+    "button": {
+      "renew_all": { "default": "mdi:book-refresh" }
+    }
+  },
+  "services": {
+    "renew": { "service": "mdi:book-refresh" }
+  }
+}

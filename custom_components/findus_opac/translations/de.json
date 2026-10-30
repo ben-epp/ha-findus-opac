@@ -1,0 +1,137 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Findus Internet-OPAC Bibliothekskonto",
+        "description": "Verbinde einen Bibliotheksausweis einer Bücherei, die Findus Internet-OPAC nutzt. Die Subdomain ist der Teil vor .findus-internet-opac.de, zum Beispiel alzey.",
+        "data": {
+          "account_name": "Kontoname",
+          "subdomain": "Bücherei-Subdomain",
+          "card": "Ausweisnummer",
+          "secret": "Geburtsdatum oder Passwort"
+        },
+        "data_description": {
+          "account_name": "Anzeigename für diesen Ausweis, z. B. der Name eines Familienmitglieds.",
+          "subdomain": "Zum Beispiel alzey. Eine vollständige Findus-Adresse geht auch.",
+          "card": "Die Lesernummer (Leserkonto), die neben dem Barcode auf dem Ausweis steht.",
+          "secret": "Geburtsdatum als TT.MM.JJJJ oder dein Passwort, genau wie auf der Bücherei-Webseite."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Zugangsdaten erneut eingeben",
+        "description": "Die Bücherei hat das gespeicherte Geburtsdatum bzw. Passwort für {account_name} abgelehnt. Bitte das aktuelle eingeben.",
+        "data": {
+          "secret": "Geburtsdatum oder Passwort"
+        },
+        "data_description": {
+          "secret": "Geburtsdatum als TT.MM.JJJJ oder dein Passwort, genau wie auf der Bücherei-Webseite."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Ausweisnummer oder Geburtsdatum/Passwort wurde abgelehnt.",
+      "cannot_connect": "Die Findus-Seite dieser Bücherei ist nicht erreichbar.",
+      "invalid_subdomain": "Keine gültige Findus-Subdomain. Den Teil vor .findus-internet-opac.de verwenden, z. B. alzey.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Dieser Bibliotheksausweis ist bereits eingerichtet.",
+      "reauth_successful": "Zugangsdaten aktualisiert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Optionen",
+        "data": {
+          "scan_hours": "Aktualisierungsintervall",
+          "due_soon_days": "Zeitraum für „bald fällig“"
+        },
+        "data_description": {
+          "scan_hours": "Stunden zwischen zwei Kontoabfragen. Findus wird von der Bücherei nur wenige Male am Tag aktualisiert.",
+          "due_soon_days": "Medien, die innerhalb so vieler Tage fällig sind, gelten als bald fällig."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "loans": {
+        "name": "Ausleihen"
+      },
+      "book": {
+        "name": "Bücher"
+      },
+      "tonie": {
+        "name": "Tonies"
+      },
+      "cd": {
+        "name": "CDs"
+      },
+      "video": {
+        "name": "Filme"
+      },
+      "game": {
+        "name": "Spiele"
+      },
+      "next_due": {
+        "name": "Nächste Rückgabe"
+      },
+      "days_left": {
+        "name": "Tage bis zur Rückgabe"
+      },
+      "due_today": {
+        "name": "Heute fällig"
+      },
+      "due_soon": {
+        "name": "Bald fällig"
+      },
+      "overdue": {
+        "name": "Überfällig"
+      },
+      "renewable": {
+        "name": "Verlängerbar"
+      }
+    },
+    "binary_sensor": {
+      "has_overdue": {
+        "name": "Überfällige Medien"
+      },
+      "can_renew": {
+        "name": "Verlängerung möglich"
+      }
+    },
+    "button": {
+      "renew_all": {
+        "name": "Alle verlängern"
+      }
+    }
+  },
+  "exceptions": {
+    "renew_auth_failed": {
+      "message": "Verlängerung fehlgeschlagen: Die Bücherei hat die gespeicherten Zugangsdaten abgelehnt."
+    },
+    "renew_failed": {
+      "message": "Verlängerung fehlgeschlagen: {error}"
+    },
+    "entry_not_found": {
+      "message": "Kein geladenes Findus-Konto mit der Konfigurations-ID {config_entry_id}."
+    }
+  },
+  "services": {
+    "renew": {
+      "name": "Ausleihen verlängern",
+      "description": "Stellt einen Verlängerungsantrag für Medien. Findus behandelt das als Antrag; die neue Leihfrist erscheint eventuell erst nach dem nächsten Abgleich der Bücherei.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Konto",
+          "description": "Konfigurationseintrag des Bibliothekskontos."
+        },
+        "media_ids": {
+          "name": "Mediennummern",
+          "description": "Zu verlängernde Mediennummern (Attribut mednr eines Mediums). Leer lassen, um alles aktuell Verlängerbare zu verlängern."
+        }
+      }
+    }
+  }
+}

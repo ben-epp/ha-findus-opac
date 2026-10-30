@@ -1,0 +1,137 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Findus Internet-OPAC library account",
+        "description": "Connect a library card of a library that uses Findus Internet-OPAC. The subdomain is the part before .findus-internet-opac.de, for example alzey.",
+        "data": {
+          "account_name": "Account name",
+          "subdomain": "Library subdomain",
+          "card": "Card number",
+          "secret": "Birth date or password"
+        },
+        "data_description": {
+          "account_name": "Display name for this card, e.g. a family member's name.",
+          "subdomain": "For example alzey. A full Findus URL is accepted too.",
+          "card": "The reader number (Leserkonto) printed next to the barcode on the library card.",
+          "secret": "Birth date as DD.MM.YYYY or your password, exactly as on the library website."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-enter credentials",
+        "description": "The library rejected the stored birth date or password for {account_name}. Enter the current one.",
+        "data": {
+          "secret": "Birth date or password"
+        },
+        "data_description": {
+          "secret": "Birth date as DD.MM.YYYY or your password, exactly as on the library website."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Card number or birth date/password was rejected.",
+      "cannot_connect": "Cannot reach the Findus site of this library.",
+      "invalid_subdomain": "Not a valid Findus subdomain. Use the part before .findus-internet-opac.de, e.g. alzey.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This library card is already configured.",
+      "reauth_successful": "Credentials updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": {
+          "scan_hours": "Update interval",
+          "due_soon_days": "Due soon window"
+        },
+        "data_description": {
+          "scan_hours": "Hours between account checks. Findus is only refreshed by the library a few times a day.",
+          "due_soon_days": "Items due within this many days count as due soon."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "loans": {
+        "name": "Loans"
+      },
+      "book": {
+        "name": "Books"
+      },
+      "tonie": {
+        "name": "Tonies"
+      },
+      "cd": {
+        "name": "CDs"
+      },
+      "video": {
+        "name": "Videos"
+      },
+      "game": {
+        "name": "Games"
+      },
+      "next_due": {
+        "name": "Next due date"
+      },
+      "days_left": {
+        "name": "Days until next due"
+      },
+      "due_today": {
+        "name": "Due today"
+      },
+      "due_soon": {
+        "name": "Due soon"
+      },
+      "overdue": {
+        "name": "Overdue"
+      },
+      "renewable": {
+        "name": "Renewable"
+      }
+    },
+    "binary_sensor": {
+      "has_overdue": {
+        "name": "Overdue items"
+      },
+      "can_renew": {
+        "name": "Renewal possible"
+      }
+    },
+    "button": {
+      "renew_all": {
+        "name": "Renew all"
+      }
+    }
+  },
+  "exceptions": {
+    "renew_auth_failed": {
+      "message": "Renewal failed: the library rejected the stored credentials."
+    },
+    "renew_failed": {
+      "message": "Renewal failed: {error}"
+    },
+    "entry_not_found": {
+      "message": "No loaded Findus account with config entry ID {config_entry_id}."
+    }
+  },
+  "services": {
+    "renew": {
+      "name": "Renew loans",
+      "description": "Submit a renewal request for library items. Findus treats this as a renewal request; the new due date may only show after the library's next sync.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Account",
+          "description": "Config entry of the library account."
+        },
+        "media_ids": {
+          "name": "Media IDs",
+          "description": "Media numbers to renew (the mednr attribute of an item). Leave empty to renew everything currently renewable."
+        }
+      }
+    }
+  }
+}
