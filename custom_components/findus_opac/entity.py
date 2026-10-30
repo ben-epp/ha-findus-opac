@@ -24,6 +24,8 @@ def loan_dict(loan: Loan, today: date) -> dict[str, Any]:
         "days_left": loan.days_left(today),
         "renewable": loan.renewable,
         "note": loan.note,
+        "cover": loan.cover_url,
+        "series": loan.series,
     }
 
 

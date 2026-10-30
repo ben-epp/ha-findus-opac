@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Original cartoon fox head for the findus_opac integration (CC0). Not the Findus vendor logo. -->
+  <!-- ears -->
+  <path d="M52 104 L62 22 Q66 14 74 20 L124 72 Z" fill="#E8691B"/>
+  <path d="M204 104 L194 22 Q190 14 182 20 L132 72 Z" fill="#E8691B"/>
+  <path d="M66 88 L72 40 L106 74 Z" fill="#5B2A12"/>
+  <path d="M190 88 L184 40 L150 74 Z" fill="#5B2A12"/>
+  <!-- head -->
+  <path d="M128 226 Q96 214 24 138 Q30 92 62 74 Q128 48 194 74 Q226 92 232 138 Q160 214 128 226 Z" fill="#F7871F"/>
+  <!-- white muzzle and cheeks -->
+  <path d="M24 138 Q76 140 128 176 Q180 140 232 138 Q164 212 128 226 Q92 212 24 138 Z" fill="#FFF6EA"/>
+  <!-- forehead blaze -->
+  <path d="M128 70 Q120 100 128 124 Q136 100 128 70 Z" fill="#FFA54A"/>
+  <!-- eyes -->
+  <ellipse cx="94" cy="126" rx="10" ry="12" fill="#2A1A10"/>
+  <ellipse cx="162" cy="126" rx="10" ry="12" fill="#2A1A10"/>
+  <circle cx="98" cy="121" r="3.5" fill="#fff"/>
+  <circle cx="166" cy="121" r="3.5" fill="#fff"/>
+  <!-- reading glasses -->
+  <g fill="none" stroke="#2A1A10" stroke-width="6" stroke-linecap="round">
+    <circle cx="94" cy="126" r="24"/>
+    <circle cx="162" cy="126" r="24"/>
+    <path d="M118 124 Q128 116 138 124"/>
+    <path d="M70 122 L48 114"/>
+    <path d="M186 122 L208 114"/>
+  </g>
+  <!-- nose and smile -->
+  <path d="M116 200 Q128 194 140 200 Q138 214 128 216 Q118 214 116 200 Z" fill="#2A1A10"/>
+  <path d="M128 216 L128 222" stroke="#2A1A10" stroke-width="3" stroke-linecap="round"/>
+</svg>

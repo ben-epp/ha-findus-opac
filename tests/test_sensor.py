@@ -43,6 +43,7 @@ async def setup(hass, freezer, opac, entry):
         ("due_soon", "2"),
         ("overdue", "1"),
         ("renewable", "2"),
+        ("card_valid_until", "2026-12-01"),
     ],
 )
 async def test_sensor_states(setup, key, expected):
@@ -59,13 +60,20 @@ async def test_items_attribute_shape(setup):
     first = items[0]
     assert set(first) == {
         "mednr", "title", "author", "media_type", "category",
-        "due", "days_left", "renewable", "note",
+        "due", "days_left", "renewable", "note", "cover", "series",
     }
-    assert (first["title"], first["days_left"], first["category"]) == ("Wale & Delfine", -17, "book")
+    assert (first["title"], first["days_left"], first["category"]) == (
+        "Wieso? Weshalb? Warum? – Wale & Delfine", -17, "book"
+    )
+    assert first["series"] == "Wieso? Weshalb? Warum?"
     assert first["note"] == "Das Medium ist vorbestellt."
+    assert first["cover"] == ""
     tonie = setup("sensor", "tonie").attributes["items"]
     assert [i["mednr"] for i in tonie] == ["0900000101"]
-    assert setup("sensor", "next_due").attributes["titles"] == ["Wale & Delfine"]
+    assert tonie[0]["cover"].endswith("/4000000000017.jpg")
+    assert setup("sensor", "next_due").attributes["titles"] == [
+        "Wieso? Weshalb? Warum? – Wale & Delfine"
+    ]
 
 
 async def test_binary_sensors(setup):
@@ -75,6 +83,33 @@ async def test_binary_sensors(setup):
     renew = setup("binary_sensor", "can_renew")
     assert renew.state == "on"
     assert [i["mednr"] for i in renew.attributes["items"]] == ["0900000101", "0900000102"]
+
+
+async def test_card_expiry(setup):
+    assert setup("sensor", "card_valid_until").attributes["days_left"] == 25
+    soon = setup("binary_sensor", "card_expires_soon")
+    assert soon.state == "on"  # 25 days left, warning starts at 30
+    assert soon.attributes == {
+        **soon.attributes,
+        "valid_until": "2026-12-01",
+        "warn_days": 30,
+    }
+
+
+def test_card_expiry_states_without_hass():
+    from datetime import date
+    from types import SimpleNamespace
+
+    from custom_components.findus_opac.binary_sensor import _card_expires_soon
+
+    def coord(until):
+        return SimpleNamespace(
+            data=SimpleNamespace(card_valid_until=until), today=lambda: date(2026, 11, 6)
+        )
+
+    assert _card_expires_soon(coord(None)) is None  # no banner: unknown, not "off"
+    assert _card_expires_soon(coord(date(2027, 6, 15))) is False
+    assert _card_expires_soon(coord(date(2026, 12, 6))) is True  # exactly 30 days
 
 
 async def test_entity_names_use_account_device(setup):

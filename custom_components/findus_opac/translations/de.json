@@ -45,11 +45,17 @@
         "title": "Optionen",
         "data": {
           "scan_hours": "Aktualisierungsintervall",
-          "due_soon_days": "Zeitraum für „bald fällig“"
+          "due_soon_days": "Zeitraum für „bald fällig“",
+          "auto_renew": "Automatisch verlängern",
+          "auto_renew_days": "Zeitraum für automatisches Verlängern",
+          "auto_renew_categories": "Nur automatisch verlängern"
         },
         "data_description": {
           "scan_hours": "Stunden zwischen zwei Kontoabfragen. Findus wird von der Bücherei nur wenige Male am Tag aktualisiert.",
-          "due_soon_days": "Medien, die innerhalb so vieler Tage fällig sind, gelten als bald fällig."
+          "due_soon_days": "Medien, die innerhalb so vieler Tage fällig sind, gelten als bald fällig.",
+          "auto_renew": "Verlängerung für verlängerbare Medien automatisch beantragen, wenn sie bald fällig sind.",
+          "auto_renew_days": "Medien verlängern, die innerhalb so vieler Tage fällig sind (0 = erst am Rückgabetag).",
+          "auto_renew_categories": "Automatisches Verlängern auf diese Medienarten beschränken. Keine Auswahl = alle."
         }
       }
     }
@@ -91,6 +97,9 @@
       },
       "renewable": {
         "name": "Verlängerbar"
+      },
+      "card_valid_until": {
+        "name": "Ausweis gültig bis"
       }
     },
     "binary_sensor": {
@@ -99,11 +108,17 @@
       },
       "can_renew": {
         "name": "Verlängerung möglich"
+      },
+      "card_expires_soon": {
+        "name": "Ausweis läuft bald ab"
       }
     },
     "button": {
       "renew_all": {
         "name": "Alle verlängern"
+      },
+      "sync": {
+        "name": "Jetzt abgleichen"
       }
     }
   },
@@ -130,7 +145,22 @@
         "media_ids": {
           "name": "Mediennummern",
           "description": "Zu verlängernde Mediennummern (Attribut mednr eines Mediums). Leer lassen, um alles aktuell Verlängerbare zu verlängern."
+        },
+        "categories": {
+          "name": "Medienarten",
+          "description": "Nur Medien dieser Arten verlängern. Wird mit den Mediennummern kombiniert, wenn beides angegeben ist."
         }
+      }
+    }
+  },
+  "selector": {
+    "categories": {
+      "options": {
+        "book": "Bücher",
+        "tonie": "Tonies",
+        "cd": "CDs",
+        "video": "Filme",
+        "game": "Spiele"
       }
     }
   }

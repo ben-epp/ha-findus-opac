@@ -42,6 +42,7 @@ async def test_press_renews_all_renewable(hass, opac, loaded_entry):
     data = events[0].data
     assert data["config_entry_id"] == loaded_entry.entry_id
     assert data["account_name"] == "Kinder"
+    assert data["trigger"] == "manual"
     assert [(i["mednr"], i["status"]) for i in data["items"]] == [
         ("0900000101", "requested"),
         ("0900000102", "requested"),
@@ -130,3 +131,57 @@ async def test_nothing_renewable_fires_empty_event(hass, opac, loaded_entry):
     opac.page = PAGE.replace("verlaengerung_ist_moeglich_ja", "verlaengerung_ist_moeglich_nein")
     await _press(hass, loaded_entry)
     assert events[0].data["items"] == []
+
+
+async def test_service_categories(hass, opac, loaded_entry):
+    events = async_capture_events(hass, EVENT_RENEWAL)
+    result = await hass.services.async_call(
+        DOMAIN,
+        "renew",
+        {"config_entry_id": loaded_entry.entry_id, "categories": ["tonie"]},
+        blocking=True,
+        return_response=True,
+    )
+    assert [i["mednr"] for i in result["items"]] == ["0900000101"]
+    renew = opac.posts[-1]
+    assert [k for k in renew if k.startswith("verlaengere_nr_")] == ["verlaengere_nr_0900000101"]
+    assert events[0].data["trigger"] == "manual"
+
+
+async def test_service_categories_without_match_posts_nothing(hass, opac, loaded_entry):
+    events = async_capture_events(hass, EVENT_RENEWAL)
+    posts = len(opac.posts)
+    result = await hass.services.async_call(
+        DOMAIN,
+        "renew",
+        {"config_entry_id": loaded_entry.entry_id, "categories": ["game"]},
+        blocking=True,
+        return_response=True,
+    )
+    assert result == {"items": []}
+    assert len(opac.posts) == posts  # no login, no renewal
+    assert events[0].data["items"] == []
+
+
+async def test_service_rejects_unknown_category(hass, opac, loaded_entry):
+    import voluptuous as vol
+
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(
+            DOMAIN,
+            "renew",
+            {"config_entry_id": loaded_entry.entry_id, "categories": ["comics"]},
+            blocking=True,
+        )
+
+
+async def test_sync_button_refreshes(hass, opac, loaded_entry):
+    entity_id = er.async_get(hass).async_get_entity_id(
+        "button", DOMAIN, f"{loaded_entry.entry_id}_sync"
+    )
+    assert entity_id
+    gets, posts = opac.gets, len(opac.posts)
+    await hass.services.async_call("button", "press", {"entity_id": entity_id}, blocking=True)
+    assert opac.gets == gets + 1
+    assert len(opac.posts) == posts + 1
+    assert not any(k.startswith("verlaengere_nr_") for k in opac.posts[-1])
