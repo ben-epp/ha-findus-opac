@@ -23,6 +23,7 @@ from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
+    TimeSelector,
 )
 
 from .client import AuthError, FindusError
@@ -33,16 +34,21 @@ from .const import (
     CONF_AUTO_RENEW_CATEGORIES,
     CONF_AUTO_RENEW_DAYS,
     CONF_CARD,
+    CONF_NOTIFY_EVENTS,
+    CONF_NOTIFY_TARGETS,
+    CONF_NOTIFY_TIME,
     CONF_DUE_SOON_DAYS,
     CONF_SCAN_HOURS,
     CONF_SECRET,
     CONF_SUBDOMAIN,
     DEFAULT_AUTO_RENEW_DAYS,
     DEFAULT_DUE_SOON_DAYS,
+    DEFAULT_NOTIFY_TIME,
     DEFAULT_SCAN_HOURS,
     DOMAIN,
     MAX_SCAN_HOURS,
     MIN_SCAN_HOURS,
+    NOTIFY_EVENTS,
 )
 from .coordinator import make_client
 
@@ -152,9 +158,18 @@ class FindusOptionsFlow(OptionsFlow):
                         user_input.get(CONF_AUTO_RENEW_DAYS, DEFAULT_AUTO_RENEW_DAYS)
                     ),
                     CONF_AUTO_RENEW_CATEGORIES: list(user_input.get(CONF_AUTO_RENEW_CATEGORIES, [])),
+                    CONF_NOTIFY_TARGETS: list(user_input.get(CONF_NOTIFY_TARGETS, [])),
+                    CONF_NOTIFY_TIME: str(user_input.get(CONF_NOTIFY_TIME, DEFAULT_NOTIFY_TIME)),
+                    CONF_NOTIFY_EVENTS: list(user_input.get(CONF_NOTIFY_EVENTS, NOTIFY_EVENTS)),
                 }
             )
         opts = self.config_entry.options
+        targets = list(opts.get(CONF_NOTIFY_TARGETS, []))
+        # Offer every registered notify service; keep saved ones even if currently missing.
+        available = sorted(
+            set(self.hass.services.async_services_for_domain("notify")) - {"send_message"}
+            | set(targets)
+        )
         schema = vol.Schema(
             {
                 vol.Required(
@@ -192,6 +207,28 @@ class FindusOptionsFlow(OptionsFlow):
                         multiple=True,
                         mode=SelectSelectorMode.LIST,
                         translation_key="categories",
+                    )
+                ),
+                vol.Optional(CONF_NOTIFY_TARGETS, default=targets): SelectSelector(
+                    SelectSelectorConfig(
+                        options=available,
+                        multiple=True,
+                        custom_value=True,
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required(
+                    CONF_NOTIFY_TIME, default=opts.get(CONF_NOTIFY_TIME, DEFAULT_NOTIFY_TIME)
+                ): TimeSelector(),
+                vol.Optional(
+                    CONF_NOTIFY_EVENTS,
+                    default=list(opts.get(CONF_NOTIFY_EVENTS, NOTIFY_EVENTS)),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=list(NOTIFY_EVENTS),
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
+                        translation_key="notify_events",
                     )
                 ),
             }
