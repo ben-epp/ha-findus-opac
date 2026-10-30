@@ -2,7 +2,7 @@
  * Findus OPAC card: loan list with due dates and a renew button.
  * Served and auto-registered by the findus_opac integration; no build step, no dependencies.
  */
-const CARD_VERSION = "0.3.0";
+const CARD_VERSION = "0.3.2";
 const DOMAIN = "findus_opac";
 
 const ICONS = {
@@ -33,6 +33,10 @@ const TEXT = {
     renewOne: "Nur dieses Medium verlängern",
     sync: "Jetzt mit der Bücherei abgleichen",
     synced: "Konto abgeglichen.",
+    items: (n) => (n === 1 ? "1 Medium" : `${n} Medien`),
+    cats: { book: "Bücher", tonie: "Tonies", cd: "CDs", video: "Filme", game: "Spiele" },
+    cardValid: (d) => `Ausweis gültig bis ${d}`,
+    cardExpired: (d) => `Ausweis abgelaufen seit ${d}`,
   },
   en: {
     loans: "Loans",
@@ -53,6 +57,10 @@ const TEXT = {
     renewOne: "Renew only this item",
     sync: "Sync with the library now",
     synced: "Account synced.",
+    items: (n) => (n === 1 ? "1 item" : `${n} items`),
+    cats: { book: "Books", tonie: "Tonies", cd: "CDs", video: "Videos", game: "Games" },
+    cardValid: (d) => `Library card valid until ${d}`,
+    cardExpired: (d) => `Library card expired on ${d}`,
   },
 };
 
@@ -62,17 +70,33 @@ const LABELS = {
     title: "Titel (leer = Kontoname)",
     show_renew: "Verlängern-Knopf anzeigen",
     show_covers: "Cover anzeigen",
+    show_card_expiry: "Ausweis-Gültigkeit anzeigen",
     max_items: "Höchstens anzeigen (0 = alle)",
     warn_days: "Warnen ab Tagen vor Rückgabe",
+    group_by: "Gruppieren (aufklappbar)",
+    max_height: "Maximale Listenhöhe in px (0 = keine, sonst scrollbar)",
   },
   en: {
     entity: "Loans sensor",
     title: "Title (empty = account name)",
     show_renew: "Show renew button",
     show_covers: "Show covers",
+    show_card_expiry: "Show library card expiry",
     max_items: "Maximum items (0 = all)",
     warn_days: "Warn days before due",
+    group_by: "Group (collapsible)",
+    max_height: "Maximum list height in px (0 = none, else scrollable)",
   },
+};
+
+const DEFAULTS = {
+  show_renew: true,
+  show_covers: true,
+  show_card_expiry: true,
+  max_items: 0,
+  warn_days: 3,
+  group_by: "due",
+  max_height: 400,
 };
 
 const lang = (hass) => (hass?.locale?.language || hass?.language || "en").startsWith("de") ? "de" : "en";
@@ -108,7 +132,7 @@ class FindusOpacCard extends HTMLElement {
     if (!config || !config.entity) {
       throw new Error("entity is required: pick the Findus 'Loans' sensor");
     }
-    this._config = { show_renew: true, show_covers: true, max_items: 0, warn_days: 3, ...config };
+    this._config = { ...DEFAULTS, ...config };
     this._lastKey = undefined;
     this._render();
   }
@@ -141,13 +165,15 @@ class FindusOpacCard extends HTMLElement {
     const deviceId = reg?.device_id;
     const renewId = deviceId ? findEntity(hass, deviceId, "button", "renew_all") : undefined;
     const syncId = deviceId ? findEntity(hass, deviceId, "button", "sync") : undefined;
+    const cardSensor = deviceId ? findEntity(hass, deviceId, "sensor", "card_valid_until") : undefined;
+    const cardState = cardSensor ? hass.states[cardSensor] : undefined;
     const device = deviceId ? hass.devices?.[deviceId] : undefined;
     const entryId = device?.primary_config_entry || device?.config_entries?.[0];
 
     // Re-render only when something visible changed; hass updates arrive constantly.
     const key = JSON.stringify([
-      st?.last_updated, st?.state, renewId, syncId, entryId,
-      this._busy, this._busyItem, this._syncing, this._config, lang(hass),
+      st?.last_updated, st?.state, renewId, syncId, entryId, cardState?.state,
+      this._busy, this._busyItem, this._syncing, this._config, lang(hass), [...(this._open || [])],
     ]);
     if (key === this._lastKey) return;
     this._lastKey = key;
@@ -173,9 +199,7 @@ class FindusOpacCard extends HTMLElement {
       d < 0 ? t.overdueDays(-d) : d === 0 ? t.today : d === 1 ? t.tomorrow : t.inDays(d);
     const level = (d) => (d < 0 ? "overdue" : d <= Number(this._config.warn_days) ? "soon" : "ok");
 
-    const rows = shown
-      .map(
-        (i) => `
+    const row = (i) => `
         <div class="row ${level(i.days_left)}" title="${esc(i.note)}">
           ${
             this._config.show_covers && /^https:\/\//.test(i.cover || "")
@@ -200,15 +224,77 @@ class FindusOpacCard extends HTMLElement {
                 : ""
             }
           </div>
-        </div>`,
-      )
-      .join("");
+        </div>`;
+
+    // Accordion: group by due date (mirrors the loan length per media type) or by category.
+    const rank = { overdue: 0, soon: 1, ok: 2 };
+    const groupBy = this._config.group_by;
+    const groups = [];
+    if (groupBy === "due" || groupBy === "category") {
+      const byKey = new Map();
+      for (const i of shown) {
+        const k = groupBy === "due" ? i.due : i.category;
+        if (!byKey.has(k)) byKey.set(k, []);
+        byKey.get(k).push(i);
+      }
+      for (const [k, list] of byKey) {
+        const lvl = list.map((i) => level(i.days_left)).sort((a, b) => rank[a] - rank[b])[0];
+        const label =
+          groupBy === "due"
+            ? `${fmtDate(k)} · ${dueText(list[0].days_left)}`
+            : `${t.cats[k] || k} · ${t.next} ${fmtDate(list[0].due)}`;
+        groups.push({ key: k, list, lvl, label });
+      }
+      if (groupBy === "category") groups.sort((a, b) => (a.list[0].due < b.list[0].due ? -1 : 1));
+    }
+    if (!this._open || this._openFor !== groupBy) {
+      this._openFor = groupBy;
+      this._open = new Set();
+      this._seen = new Set();
+    }
+    // Default per group, decided the first time it appears: urgent open, the rest collapsed;
+    // a single group is always open. Later taps override it.
+    for (const g of groups) {
+      const k = String(g.key);
+      if (this._seen.has(k)) continue;
+      this._seen.add(k);
+      if (g.lvl !== "ok" || groups.length === 1) this._open.add(k);
+    }
+    const rows = groups.length
+      ? groups
+          .map((g) => {
+            const open = this._open.has(String(g.key));
+            const ren = g.list.filter((i) => i.renewable).length;
+            return `
+        <button class="group ${g.lvl}" data-key="${esc(g.key)}" aria-expanded="${open}">
+          <ha-icon icon="${open ? "mdi:chevron-down" : "mdi:chevron-right"}"></ha-icon>
+          <span class="glabel">${esc(g.label)}</span>
+          ${ren ? `<span class="chip">${esc(t.renewable)} ${ren}</span>` : ""}
+          <span class="gcount">${esc(t.items(g.list.length))}</span>
+        </button>
+        ${open ? `<div class="gbody">${g.list.map(row).join("")}</div>` : ""}`;
+          })
+          .join("")
+      : shown.map(row).join("");
 
     const showRenew = this._config.show_renew && renewId && renewable > 0;
+    let cardLine = "";
+    if (this._config.show_card_expiry && /^\d{4}-\d{2}-\d{2}$/.test(cardState?.state || "")) {
+      const days = Number(cardState.attributes?.days_left);
+      const d = new Date(`${cardState.state}T12:00:00`).toLocaleDateString(locale, {
+        day: "numeric", month: "long", year: "numeric",
+      });
+      const lvl = days < 0 ? "overdue" : days <= 30 ? "soon" : "ok";
+      cardLine = `<div class="cardline ${lvl}"><ha-icon icon="mdi:card-account-details"></ha-icon>${esc(
+        days < 0 ? t.cardExpired(d) : t.cardValid(d),
+      )}</div>`;
+    }
+    const maxH = Number(this._config.max_height) || 0;
+    const scrollTop = this.shadowRoot.querySelector(".list")?.scrollTop || 0;
     this.shadowRoot.innerHTML = `
       <ha-card>
         <div class="header">
-          <div class="title">${esc(title)}</div>
+          <div class="titlebox"><div class="title">${esc(title)}</div>${cardLine}</div>
           <div class="badges">
             <span class="badge">${items.length} ${esc(t.loans)}</span>
             ${overdue ? `<span class="badge bad">${esc(t.overdue(overdue))}</span>` : ""}
@@ -220,7 +306,7 @@ class FindusOpacCard extends HTMLElement {
             }
           </div>
         </div>
-        <div class="list">
+        <div class="list" style="${maxH > 0 ? `max-height:${maxH}px;overflow-y:auto` : ""}">
           ${items.length ? rows : `<div class="empty">${esc(t.none)}</div>`}
           ${items.length > shown.length ? `<div class="more">${esc(t.more(items.length - shown.length))}</div>` : ""}
         </div>
@@ -234,6 +320,16 @@ class FindusOpacCard extends HTMLElement {
       </ha-card>${STYLE}`;
 
     this.shadowRoot.getElementById("renew")?.addEventListener("click", () => this._renew(renewId));
+    const list = this.shadowRoot.querySelector(".list");
+    if (list) list.scrollTop = scrollTop; // keep position across hass updates
+    this.shadowRoot.querySelectorAll("button.group").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const k = btn.dataset.key;
+        if (this._open.has(k)) this._open.delete(k);
+        else this._open.add(k);
+        this._render();
+      }),
+    );
     this.shadowRoot.getElementById("sync")?.addEventListener("click", () => this._sync(syncId));
     this.shadowRoot.querySelectorAll("button.item-renew").forEach((btn) =>
       btn.addEventListener("click", () => this._renewOne(entryId, btn.dataset.mednr)),
@@ -309,6 +405,10 @@ const STYLE = `<style>
   ha-card { padding: 12px 16px 8px; }
   .header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
   .title { font-size: 1.2em; font-weight: 500; }
+  .cardline { display: flex; align-items: center; gap: 4px; font-size: .8em; color: var(--secondary-text-color); }
+  .cardline ha-icon { --mdc-icon-size: 16px; }
+  .cardline.soon { color: var(--warning-color); }
+  .cardline.overdue { color: var(--error-color); font-weight: 500; }
   .badges { display: flex; gap: 6px; align-items: center; }
   .icon-btn { border: none; background: none; cursor: pointer; padding: 4px; border-radius: 50%;
               color: var(--secondary-text-color); line-height: 0; }
@@ -322,6 +422,16 @@ const STYLE = `<style>
   .list { margin-top: 8px; }
   .row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--divider-color); }
   .row:first-child { border-top: none; }
+  .list { overscroll-behavior: contain; scrollbar-width: thin; }
+  .group { display: flex; align-items: center; gap: 6px; width: 100%; border: none; cursor: pointer; font: inherit;
+           text-align: left; padding: 8px 4px; margin-top: 4px; border-radius: 8px;
+           background: var(--secondary-background-color); color: var(--primary-text-color); }
+  .group .glabel { flex: 1; font-weight: 500; }
+  .group .gcount { font-size: .85em; color: var(--secondary-text-color); }
+  .group.soon .glabel { color: var(--warning-color); }
+  .group.overdue .glabel { color: var(--error-color); }
+  .group .chip { margin-top: 0; }
+  .gbody { padding: 0 4px 0 8px; }
   .type { color: var(--state-icon-color, var(--paper-item-icon-color)); flex: none; width: 40px; text-align: center; }
   .cover { width: 40px; height: 56px; object-fit: cover; border-radius: 4px; flex: none;
            background: var(--secondary-background-color); box-shadow: 0 1px 3px rgba(0,0,0,.25); }
@@ -368,15 +478,28 @@ class FindusOpacCardEditor extends HTMLElement {
     }
     const labels = LABELS[lang(this._hass)];
     this._form.hass = this._hass;
-    this._form.data = { show_renew: true, show_covers: true, max_items: 0, warn_days: 3, ...this._config };
+    this._form.data = { ...DEFAULTS, ...this._config };
     this._form.computeLabel = (s) => labels[s.name] || s.name;
     this._form.schema = [
       { name: "entity", required: true, selector: { entity: { filter: { integration: DOMAIN, domain: "sensor" } } } },
       { name: "title", selector: { text: {} } },
       { name: "show_renew", selector: { boolean: {} } },
       { name: "show_covers", selector: { boolean: {} } },
+      { name: "show_card_expiry", selector: { boolean: {} } },
       { name: "max_items", selector: { number: { min: 0, max: 50, mode: "box" } } },
       { name: "warn_days", selector: { number: { min: 0, max: 14, mode: "box" } } },
+      {
+        name: "group_by",
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: lang(this._hass) === "de"
+              ? [{ value: "due", label: "Nach Rückgabedatum" }, { value: "category", label: "Nach Medienart" }, { value: "none", label: "Nicht gruppieren" }]
+              : [{ value: "due", label: "By due date" }, { value: "category", label: "By media type" }, { value: "none", label: "No grouping" }],
+          },
+        },
+      },
+      { name: "max_height", selector: { number: { min: 0, max: 2000, step: 50, mode: "box" } } },
     ];
   }
 }

@@ -36,6 +36,9 @@
       },
       "renewable": {
         "default": "mdi:autorenew"
+      },
+      "card_valid_until": {
+        "default": "mdi:card-account-details"
       }
     },
     "binary_sensor": {
@@ -44,6 +47,9 @@
       },
       "can_renew": {
         "default": "mdi:autorenew"
+      },
+      "card_expires_soon": {
+        "default": "mdi:card-account-details-outline"
       }
     },
     "button": {

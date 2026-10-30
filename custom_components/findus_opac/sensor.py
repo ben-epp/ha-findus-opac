@@ -125,6 +125,17 @@ SENSORS: tuple[FindusSensorEntityDescription, ...] = (
     _counter("due_soon", _due_soon),
     _counter("overdue", _overdue),
     _counter("renewable", _renewable),
+    FindusSensorEntityDescription(
+        key="card_valid_until",
+        translation_key="card_valid_until",
+        device_class=SensorDeviceClass.DATE,
+        value_fn=lambda c: c.data.card_valid_until,
+        attrs_fn=lambda c: {
+            "days_left": (c.data.card_valid_until - c.today()).days
+            if c.data.card_valid_until
+            else None
+        },
+    ),
 )
 
 

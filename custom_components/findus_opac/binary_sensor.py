@@ -13,6 +13,7 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .const import CARD_EXPIRY_WARN_DAYS
 from .coordinator import FindusConfigEntry, FindusCoordinator
 from .entity import FindusEntity, loan_items
 
@@ -21,7 +22,7 @@ PARALLEL_UPDATES = 0
 
 @dataclass(frozen=True, kw_only=True)
 class FindusBinarySensorEntityDescription(BinarySensorEntityDescription):
-    is_on_fn: Callable[[FindusCoordinator], bool]
+    is_on_fn: Callable[[FindusCoordinator], bool | None]
     attrs_fn: Callable[[FindusCoordinator], dict[str, Any]] | None = None
 
 
@@ -32,6 +33,12 @@ def _overdue(c: FindusCoordinator) -> list:
 
 def _renewable(c: FindusCoordinator) -> list:
     return [l for l in c.data.loans if l.renewable]
+
+
+def _card_expires_soon(c: FindusCoordinator) -> bool | None:
+    """Unknown (None) when the page shows no expiry banner."""
+    until = c.data.card_valid_until
+    return None if until is None else (until - c.today()).days <= CARD_EXPIRY_WARN_DAYS
 
 
 BINARY_SENSORS: tuple[FindusBinarySensorEntityDescription, ...] = (
@@ -47,6 +54,16 @@ BINARY_SENSORS: tuple[FindusBinarySensorEntityDescription, ...] = (
         translation_key="can_renew",
         is_on_fn=lambda c: bool(_renewable(c)),
         attrs_fn=lambda c: {"items": loan_items(_renewable(c), c.today())},
+    ),
+    FindusBinarySensorEntityDescription(
+        key="card_expires_soon",
+        translation_key="card_expires_soon",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+        is_on_fn=_card_expires_soon,
+        attrs_fn=lambda c: {
+            "valid_until": c.data.card_valid_until.isoformat() if c.data.card_valid_until else None,
+            "warn_days": CARD_EXPIRY_WARN_DAYS,
+        },
     ),
 )
 
@@ -70,7 +87,7 @@ class FindusBinarySensor(FindusEntity, BinarySensorEntity):
         self.entity_description = description
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool | None:
         return self.entity_description.is_on_fn(self.coordinator)
 
     @property

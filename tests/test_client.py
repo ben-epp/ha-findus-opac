@@ -8,6 +8,7 @@ from custom_components.findus_opac.client import (
     FindusClient,
     ParseError,
     parse_account,
+    parse_card_valid_until,
 )
 
 # Synthetic page: real Findus markup structure, invented data.
@@ -52,10 +53,43 @@ def test_parse_loans():
         "Musterfrau, Erika",
         date(2026, 11, 6),
     )
-    assert acc.loans[3].title == "Wale & Delfine"
+    assert acc.loans[3].title == "Wieso? Weshalb? Warum? – Wale & Delfine"
     assert acc.loans[4].author == ""
     assert [l.renewable for l in acc.loans] == [True, True, False, False, False]
     assert acc.form["verlaengerungsantrag"] == "1" and acc.form["formburnerid"]
+
+
+def test_series_titles():
+    acc = parse_account(PAGE)
+    # Volume title already names the series ("Yakari" / "Yakari - ... (Band 26)" on real pages)
+    assert (acc.loans[2].title, acc.loans[2].series) == (
+        "Waldbande - Abenteuer im Wald (Band 3)",
+        "Waldbande",
+    )
+    # Volume title without the series name gets it prefixed
+    assert (acc.loans[3].title, acc.loans[3].series) == (
+        "Wieso? Weshalb? Warum? – Wale & Delfine",
+        "Wieso? Weshalb? Warum?",
+    )
+    assert (acc.loans[0].title, acc.loans[0].series) == ("Der kleine Drache", "")
+
+
+def test_card_valid_until():
+    assert parse_account(PAGE).card_valid_until == date(2026, 12, 1)
+
+
+@pytest.mark.parametrize(
+    ("banner", "expected"),
+    [
+        ("Ihr Ausweis ist g&uuml;ltig bis: 15. Juni 2027", date(2027, 6, 15)),
+        ("Ihr Ausweis ist gültig bis: 1. März 2027", date(2027, 3, 1)),
+        ("Ihr Ausweis ist abgelaufen seit: 15.06.2025", date(2025, 6, 15)),
+        ("Ihr Ausweis ist gültig bis: 31. Februar 2027", None),
+        ("<div>Willkommen</div>", None),
+    ],
+)
+def test_card_valid_until_variants(banner, expected):
+    assert parse_card_valid_until(banner) == expected
 
 
 def test_cover_urls():

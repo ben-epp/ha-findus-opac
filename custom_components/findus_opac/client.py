@@ -49,6 +49,7 @@ class Loan:
     renewable: bool
     note: str = ""
     cover_url: str = ""
+    series: str = ""
 
     @property
     def category(self) -> str:
@@ -71,6 +72,7 @@ class Loan:
 class Account:
     loans: list[Loan] = field(default_factory=list)
     form: dict[str, str] = field(default_factory=dict)
+    card_valid_until: date | None = None
 
     def loan(self, mednr: str) -> Loan | None:
         return next((l for l in self.loans if l.mednr == mednr), None)
@@ -110,6 +112,47 @@ def _renew_note(cell: str) -> str:
     return _text(p.group(1)) if p else ""
 
 
+def _title(cell: str) -> tuple[str, str]:
+    """(title, series). Series items carry two bold lines: series name, then volume title."""
+    # Only the visible head of the cell: the hidden details/annotation block has its own
+    # bold labels ("<b>Inhalt:</b>") that are not titles.
+    cell = re.split(r'<span class="(?:standort_ueberschrift|details_hier)"|<div class="annotation_inline"', cell)[0]
+    bold = [_text(b) for b in re.findall(r"<b>(.*?)</b>", cell, re.S)]
+    bold = [b for b in bold if b]
+    if not bold:
+        return _hint(cell), ""
+    if len(bold) == 1:
+        return bold[0], ""
+    series, part = bold[0], bold[1]
+    # "Yakari" + "Yakari - Die Rache des Carcajou (Band 26)": the part already names the series
+    title = part if part.lower().startswith(series.lower()) else f"{series} – {part}"
+    return title, series
+
+
+MONTHS = {
+    "januar": 1, "jänner": 1, "februar": 2, "märz": 3, "maerz": 3, "april": 4, "mai": 5,
+    "juni": 6, "juli": 7, "august": 8, "september": 9, "oktober": 10, "november": 11,
+    "dezember": 12,
+}
+# "Ihr Ausweis ist gültig bis: 15. Juni 2027" (also "abgelaufen am/seit", or 15.06.2027)
+CARD_RE = re.compile(
+    r"Ausweis[^<]{0,40}?(?:bis|am|seit)\s*:?\s*(\d{1,2})\.\s*(?:([A-Za-zÄäÖöÜü]+)|(\d{1,2})\.)\s*(\d{4})"
+)
+
+
+def parse_card_valid_until(page: str) -> date | None:
+    """Expiry date of the library card from the account banner, if shown."""
+    m = CARD_RE.search(htmllib.unescape(page))
+    if not m:
+        return None
+    day, month_name, month_num, year = m.groups()
+    month = int(month_num) if month_num else MONTHS.get(month_name.lower())
+    try:
+        return date(int(year), month, int(day)) if month else None
+    except ValueError:
+        return None
+
+
 def hidden_fields(page: str) -> dict[str, str]:
     """Hidden inputs of the first POST form on the page."""
     m = FORM_RE.search(page)
@@ -124,7 +167,7 @@ def parse_account(page: str) -> Account:
     for m in ROW_RE.finditer(page):
         body = m["body"]
         title_cell = _cell(body, "spaltetitel")
-        tm = re.search(r"<b>(.*?)</b>", title_cell, re.S)
+        title, series = _title(title_cell)
         media_cell = _cell(body, "spaltemedienart")
         cover = COVER_RE.search(media_cell)
         renewable = m["ok"] == "ja"
@@ -135,7 +178,8 @@ def parse_account(page: str) -> Account:
         loans.append(
             Loan(
                 mednr=m["mednr"],
-                title=_text(tm.group(1)) if tm else _hint(title_cell),
+                title=title,
+                series=series,
                 author=_hint(_cell(body, "spalteautor")),
                 media_type=_hint(media_cell),
                 due=due,
@@ -146,7 +190,11 @@ def parse_account(page: str) -> Account:
         )
     if not loans and ACCOUNT_MARKER not in page and EMPTY_MARKER not in page:
         raise ParseError("no account content")
-    return Account(loans=loans, form=hidden_fields(page) if loans else {})
+    return Account(
+        loans=loans,
+        form=hidden_fields(page) if loans else {},
+        card_valid_until=parse_card_valid_until(page),
+    )
 
 
 class FindusClient:

@@ -3,7 +3,8 @@
   "name": "Findus Internet-OPAC",
   "after_dependencies": [
     "frontend",
-    "http"
+    "http",
+    "lovelace"
   ],
   "codeowners": [],
   "config_flow": true,
@@ -14,5 +15,5 @@
     "custom_components.findus_opac"
   ],
   "requirements": [],
-  "version": "0.3.0"
+  "version": "0.3.2"
 }

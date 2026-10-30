@@ -98,6 +98,8 @@ Pro Konto ein Gerät mit diesen Entitäten (Entity-IDs beginnen mit dem Kontonam
 | Tage bis zur Rückgabe | Sensor | Tage bis zur nächsten Rückgabe (negativ = überfällig) |
 | Heute fällig / Bald fällig / Überfällig | Sensor | Anzahl Medien |
 | Verlängerbar | Sensor | Anzahl aktuell verlängerbarer Medien |
+| Ausweis gültig bis | Sensor | Ablaufdatum aus dem Hinweis im Leserkonto („Ihr Ausweis ist gültig bis …“); Attribut `days_left` |
+| Ausweis läuft bald ab | Binärsensor | An ab 30 Tagen vor Ablauf; unbekannt, wenn die Seite kein Datum zeigt |
 | Überfällige Medien | Binärsensor | an, wenn etwas überfällig ist |
 | Verlängerung möglich | Binärsensor | an, wenn mindestens ein Medium verlängert werden kann |
 | Alle verlängern | Button | Stellt den Verlängerungsantrag für alle verlängerbaren Medien |
@@ -227,6 +229,8 @@ show_renew: true          # Verlängern-Knöpfe anzeigen
 show_covers: true         # Coverbilder anzeigen
 max_items: 0              # 0 = alle
 warn_days: 3              # orange ab so vielen Tagen vor der Rückgabe
+group_by: due             # due (Rückgabedatum) | category (Medienart) | none – aufklappbare Gruppen
+max_height: 400           # Listenhöhe in px, darüber scrollbar; 0 = keine Begrenzung
 ```
 
 Die Cover lädt der Browser des Betrachters direkt von den Cover-Servern von Findus

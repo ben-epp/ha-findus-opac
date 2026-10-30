@@ -21,6 +21,9 @@ CONF_AUTO_RENEW_DAYS = "auto_renew_days"
 CONF_AUTO_RENEW_CATEGORIES = "auto_renew_categories"  # empty = all categories
 DEFAULT_AUTO_RENEW_DAYS = 2
 
+# Library card expiry: "expires soon" binary sensor turns on this many days before.
+CARD_EXPIRY_WARN_DAYS = 30
+
 # Loan.category values -> count sensor keys
 CATEGORIES = ("book", "tonie", "cd", "video", "game")
 
@@ -36,4 +39,4 @@ RENEW_RECHECK_MINUTES = 30
 # Bundled Lovelace card (frontend/findus-opac-card.js); bump CARD_VERSION to bust browser caches.
 CARD_FILE = "findus-opac-card.js"
 CARD_URL = f"/{DOMAIN}/{CARD_FILE}"
-CARD_VERSION = "0.3.0"
+CARD_VERSION = "0.3.2"

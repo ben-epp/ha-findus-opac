@@ -97,6 +97,9 @@
       },
       "renewable": {
         "name": "Renewable"
+      },
+      "card_valid_until": {
+        "name": "Library card valid until"
       }
     },
     "binary_sensor": {
@@ -105,6 +108,9 @@
       },
       "can_renew": {
         "name": "Renewal possible"
+      },
+      "card_expires_soon": {
+        "name": "Library card expires soon"
       }
     },
     "button": {

@@ -93,6 +93,8 @@ One device per account with these entities (entity IDs start with the account na
 | Days until next due | Sensor | Days until the next due date (negative = overdue) |
 | Due today / Due soon / Overdue | Sensor | Number of items |
 | Renewable | Sensor | Number of items renewable right now |
+| Library card valid until | Sensor | Expiry date from the account banner ("Ihr Ausweis ist gültig bis …"); attribute `days_left` |
+| Library card expires soon | Binary sensor | On 30 days before the card expires; unknown if the page shows no expiry |
 | Overdue items | Binary sensor | on when anything is overdue |
 | Renewal possible | Binary sensor | on when at least one item can be renewed |
 | Renew all | Button | Submits the renewal request for all renewable items |
@@ -219,6 +221,8 @@ show_renew: true         # show renew buttons
 show_covers: true        # show cover images
 max_items: 0             # 0 = all
 warn_days: 3             # orange from this many days before due
+group_by: due            # due | category | none – collapsible groups
+max_height: 400          # list height in px, scrolls beyond; 0 = no limit
 ```
 
 Covers are loaded by the viewer's browser directly from Findus' cover servers
