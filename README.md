@@ -24,6 +24,9 @@ nutzen (über 230, z. B. `alzey.findus-internet-opac.de`).
 - Verlängern ist nur möglich, wenn die Bücherei es zulässt – typischerweise erst
   **14 Tage vor der Rückgabefrist**, nicht bei vorbestellten Medien und nicht nach der
   maximalen Anzahl an Verlängerungen. Der Grund steht im Attribut `note` des Mediums.
+- Die Leihfrist hängt von der Medienart ab (Tonies und CDs meist kürzer als Bücher).
+  Jedes Medium hat seine eigene Frist; Verlängern und Auto-Verlängern behandeln jedes
+  Medium einzeln nach seinem eigenen Rückgabedatum.
 
 ## Installation
 
@@ -61,6 +64,27 @@ fragt Home Assistant automatisch nach dem neuen Passwort.
 |---|---|---|
 | Aktualisierungsintervall | 6 h | Stunden zwischen zwei Abfragen (1–24) |
 | Zeitraum für „bald fällig“ | 3 Tage | Medien, die innerhalb dieser Tage fällig sind |
+| Automatisch verlängern | aus | Verlängerbare Medien automatisch beantragen, wenn sie bald fällig sind |
+| Zeitraum für automatisches Verlängern | 2 Tage | Medien, die innerhalb dieser Tage fällig sind (0 = erst am Rückgabetag) |
+| Nur automatisch verlängern | alle | Auf Medienarten beschränken, z. B. nur Tonies und CDs |
+
+### Automatisch verlängern
+
+Ist die Option aktiv, prüft die Integration bei jeder Aktualisierung, welche Medien
+verlängerbar sind und innerhalb des eingestellten Zeitraums fällig werden, und stellt für
+genau diese den Verlängerungsantrag. Pro Medium und Rückgabedatum wird nur **einmal**
+beantragt – ein noch nicht verarbeiteter Antrag wird nicht bei jeder Abfrage erneut gestellt.
+Ändert sich die Frist (verlängert), beginnt das Spiel beim nächsten Mal von vorn.
+
+Hinweise:
+
+- Die Bücherei öffnet die Verlängerung erst kurz vor Fristende (oft **14 Tage**
+  vorher). Ein Zeitraum größer als dieses Fenster bringt nichts.
+- Weil Tonies/CDs kürzere Leihfristen als Bücher haben, werden sie meist zu anderen
+  Zeitpunkten verlängert – das passiert automatisch, jedes Medium für sich.
+- Fehler beim automatischen Verlängern brechen die Aktualisierung nicht ab, sie landen
+  als Warnung im Log. Jeder Versuch löst das Ereignis `findus_opac_renewal` mit
+  `trigger: auto` aus – ideal für eine Benachrichtigung.
 
 ## Entitäten
 
@@ -77,9 +101,16 @@ Pro Konto ein Gerät mit diesen Entitäten (Entity-IDs beginnen mit dem Kontonam
 | Überfällige Medien | Binärsensor | an, wenn etwas überfällig ist |
 | Verlängerung möglich | Binärsensor | an, wenn mindestens ein Medium verlängert werden kann |
 | Alle verlängern | Button | Stellt den Verlängerungsantrag für alle verlängerbaren Medien |
+| Jetzt abgleichen | Button (Diagnose) | Liest das Leserkonto sofort neu ein |
+
+„Jetzt abgleichen“ fragt Findus sofort ab. Findus selbst hat aber nur den Stand, den die
+Bücherei zuletzt hochgeladen hat – eine gerade am Tresen zurückgegebene Tonie-Box kann
+also noch ein paar Stunden in der Liste stehen.
 
 Jedes Element in `items` hat: `mednr`, `title`, `author`, `media_type`, `category`
 (`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `note`, `cover` (Cover-URL oder leer).
+`cover` ist das Coverbild, das Findus selbst anzeigt (Tonies über den mycover-Dienst per EAN,
+Bücher über den Buchhandels-Coverdienst per ISBN).
 Die Medienart kommt von der Bücherei (z. B. „Kinder- und Jugendliteratur“) und wird
 per Stichwort einer Kategorie zugeordnet; alles Unbekannte zählt als Buch.
 
@@ -95,14 +126,31 @@ data:
     - "0900000101"
 ```
 
+Nur bestimmte Medienarten verlängern (`book`, `tonie`, `cd`, `video`, `game`):
+
+```yaml
+action: findus_opac.renew
+data:
+  config_entry_id: 0123456789abcdef0123456789abcdef
+  categories:
+    - tonie
+    - cd
+```
+
+Werden `media_ids` und `categories` zusammen angegeben, gilt beides. Nicht verlängerbare
+Medien werden immer übersprungen. Mit `response_variable` liefert der Dienst die Ergebnisse
+zurück (gleiche `items` wie im Ereignis).
+
 ### Ereignis `findus_opac_renewal`
 
-Wird nach jedem Verlängerungsversuch (Button oder Dienst) ausgelöst:
+Wird nach jedem Verlängerungsversuch ausgelöst – über Button, Dienst, Karte
+(`trigger: manual`) oder das automatische Verlängern (`trigger: auto`):
 
 ```json
 {
   "config_entry_id": "0123456789abcdef0123456789abcdef",
   "account_name": "Lena",
+  "trigger": "auto",
   "items": [
     {"mednr": "0900000101", "title": "Der kleine Drache", "old_due": "2026-11-06",
      "new_due": "2026-12-04", "status": "renewed"},
@@ -132,20 +180,9 @@ automation:
             {{ states('sensor.lena_nachste_ruckgabe') }}.
 ```
 
-**Automatisch verlängern, sobald es möglich ist:**
-
-```yaml
-automation:
-  - alias: Bücherei – automatisch verlängern
-    triggers:
-      - trigger: state
-        entity_id: binary_sensor.lena_verlangerung_moglich
-        to: "on"
-    actions:
-      - action: button.press
-        target:
-          entity_id: button.lena_alle_verlangern
-```
+**Automatisch verlängern:** dafür braucht es keine Automation mehr – einfach die Option
+„Automatisch verlängern“ einschalten (Integration → Konfigurieren), siehe
+[Automatisch verlängern](#automatisch-verlängern).
 
 **Benachrichtigung nach dem Verlängern:**
 
@@ -158,7 +195,9 @@ automation:
     actions:
       - action: notify.mobile_app_handy
         data:
-          title: "Bücherei: {{ trigger.event.data.account_name }}"
+          title: >
+            Bücherei {{ trigger.event.data.account_name }}
+            {{ '(automatisch)' if trigger.event.data.trigger == 'auto' else '' }}
           message: >
             {% for i in trigger.event.data['items'] %}
             {{ i.title }}: {{ 'verlängert bis ' ~ i.new_due if i.status == 'renewed'
@@ -168,7 +207,37 @@ automation:
 
 Die Entity-IDs hängen vom Kontonamen und der Systemsprache ab – auf der Geräteseite nachsehen.
 
+## Dashboard-Karte
+
+Die Integration bringt eine eigene Karte mit und registriert sie selbst – keine
+Ressource eintragen, kein extra HACS-Frontend-Paket. Nach dem Neustart taucht sie im
+Karten-Dialog als **„Findus Bibliothek“** auf und wählt den Ausleihen-Sensor automatisch.
+
+- Coverbild je Medium (fehlt es, erscheint das Symbol der Medienart)
+- Rückgabedatum mit „heute“, „in 2 Tagen“, rot bei überfälligen, orange bei bald fälligen Medien
+- Abzeichen „verlängerbar“ und ein Verlängern-Symbol **pro Medium**
+- Knopf „N verlängern“ für alle verlängerbaren Medien
+- Abgleich-Symbol im Kopf („Jetzt abgleichen“)
+
+```yaml
+type: custom:findus-opac-card
+entity: sensor.lena_ausleihen
+title: Lenas Bücherei     # optional, Standard: Kontoname
+show_renew: true          # Verlängern-Knöpfe anzeigen
+show_covers: true         # Coverbilder anzeigen
+max_items: 0              # 0 = alle
+warn_days: 3              # orange ab so vielen Tagen vor der Rückgabe
+```
+
+Die Cover lädt der Browser des Betrachters direkt von den Cover-Servern von Findus
+(`mycover.findus-internet-opac.de`, `covers-buchhandel-de.findus-internet-opac.de`);
+Zugangsdaten werden dabei nicht übertragen. Wer das nicht möchte: `show_covers: false`.
+
+Nach einem Update der Integration ggf. den Browser-Cache leeren (Strg+Umschalt+R).
+
 ## Ausleihliste als Markdown-Karte
+
+Alternativ ohne eigene Karte, nur mit Bordmitteln:
 
 ```yaml
 type: markdown
@@ -186,6 +255,11 @@ content: >
 
   {% endfor %}
 ```
+
+## Symbol
+
+Das Fuchs-Symbol ist eine eigene Zeichnung (`images/fox.svg`) und **nicht** das Logo von
+Findus. Neuere Home-Assistant-Versionen zeigen es automatisch an (Ordner `brand/`).
 
 ## Datenschutz
 
