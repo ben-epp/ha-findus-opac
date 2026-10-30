@@ -79,7 +79,7 @@ Pro Konto ein Gerät mit diesen Entitäten (Entity-IDs beginnen mit dem Kontonam
 | Alle verlängern | Button | Stellt den Verlängerungsantrag für alle verlängerbaren Medien |
 
 Jedes Element in `items` hat: `mednr`, `title`, `author`, `media_type`, `category`
-(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `note`.
+(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `note`, `cover` (Cover-URL oder leer).
 Die Medienart kommt von der Bücherei (z. B. „Kinder- und Jugendliteratur“) und wird
 per Stichwort einer Kategorie zugeordnet; alles Unbekannte zählt als Buch.
 

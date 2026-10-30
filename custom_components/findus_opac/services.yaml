@@ -10,3 +10,15 @@ renew:
       selector:
         text:
           multiple: true
+    categories:
+      required: false
+      selector:
+        select:
+          multiple: true
+          translation_key: categories
+          options:
+            - book
+            - tonie
+            - cd
+            - video
+            - game

@@ -13,9 +13,13 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -23,12 +27,17 @@ from homeassistant.helpers.selector import (
 
 from .client import AuthError, FindusError
 from .const import (
+    CATEGORIES,
     CONF_ACCOUNT_NAME,
+    CONF_AUTO_RENEW,
+    CONF_AUTO_RENEW_CATEGORIES,
+    CONF_AUTO_RENEW_DAYS,
     CONF_CARD,
     CONF_DUE_SOON_DAYS,
     CONF_SCAN_HOURS,
     CONF_SECRET,
     CONF_SUBDOMAIN,
+    DEFAULT_AUTO_RENEW_DAYS,
     DEFAULT_DUE_SOON_DAYS,
     DEFAULT_SCAN_HOURS,
     DOMAIN,
@@ -138,6 +147,11 @@ class FindusOptionsFlow(OptionsFlow):
                 data={
                     CONF_SCAN_HOURS: int(user_input[CONF_SCAN_HOURS]),
                     CONF_DUE_SOON_DAYS: int(user_input[CONF_DUE_SOON_DAYS]),
+                    CONF_AUTO_RENEW: bool(user_input.get(CONF_AUTO_RENEW, False)),
+                    CONF_AUTO_RENEW_DAYS: int(
+                        user_input.get(CONF_AUTO_RENEW_DAYS, DEFAULT_AUTO_RENEW_DAYS)
+                    ),
+                    CONF_AUTO_RENEW_CATEGORIES: list(user_input.get(CONF_AUTO_RENEW_CATEGORIES, [])),
                 }
             )
         opts = self.config_entry.options
@@ -156,6 +170,28 @@ class FindusOptionsFlow(OptionsFlow):
                 ): NumberSelector(
                     NumberSelectorConfig(
                         min=0, max=14, step=1, mode=NumberSelectorMode.BOX, unit_of_measurement="d"
+                    )
+                ),
+                vol.Required(
+                    CONF_AUTO_RENEW, default=opts.get(CONF_AUTO_RENEW, False)
+                ): BooleanSelector(),
+                vol.Required(
+                    CONF_AUTO_RENEW_DAYS,
+                    default=opts.get(CONF_AUTO_RENEW_DAYS, DEFAULT_AUTO_RENEW_DAYS),
+                ): NumberSelector(
+                    NumberSelectorConfig(
+                        min=0, max=14, step=1, mode=NumberSelectorMode.BOX, unit_of_measurement="d"
+                    )
+                ),
+                vol.Optional(
+                    CONF_AUTO_RENEW_CATEGORIES,
+                    default=opts.get(CONF_AUTO_RENEW_CATEGORIES, []),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=list(CATEGORIES),
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
+                        translation_key="categories",
                     )
                 ),
             }

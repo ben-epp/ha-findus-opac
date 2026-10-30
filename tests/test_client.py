@@ -58,6 +58,15 @@ def test_parse_loans():
     assert acc.form["verlaengerungsantrag"] == "1" and acc.form["formburnerid"]
 
 
+def test_cover_urls():
+    acc = parse_account(PAGE)
+    assert acc.loans[0].cover_url == (
+        "https://mycover.findus-internet-opac.de/cover/musterstadt/90/4000000000017.jpg"
+    )
+    assert acc.loans[2].cover_url.endswith("/isbn/9780000000002")
+    assert acc.loans[3].cover_url == ""  # item without a cover
+
+
 def test_notes_are_cleaned():
     acc = parse_account(PAGE)
     assert acc.loans[0].note == ""

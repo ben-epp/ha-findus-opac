@@ -45,11 +45,17 @@
         "title": "Options",
         "data": {
           "scan_hours": "Update interval",
-          "due_soon_days": "Due soon window"
+          "due_soon_days": "Due soon window",
+          "auto_renew": "Auto-renew",
+          "auto_renew_days": "Auto-renew window",
+          "auto_renew_categories": "Auto-renew only"
         },
         "data_description": {
           "scan_hours": "Hours between account checks. Findus is only refreshed by the library a few times a day.",
-          "due_soon_days": "Items due within this many days count as due soon."
+          "due_soon_days": "Items due within this many days count as due soon.",
+          "auto_renew": "Automatically request renewal for items that can be renewed and are due soon.",
+          "auto_renew_days": "Renew items due within this many days (0 = only on the due date).",
+          "auto_renew_categories": "Restrict auto-renew to these media types. Nothing selected = all types."
         }
       }
     }
@@ -104,6 +110,9 @@
     "button": {
       "renew_all": {
         "name": "Renew all"
+      },
+      "sync": {
+        "name": "Sync now"
       }
     }
   },
@@ -130,7 +139,22 @@
         "media_ids": {
           "name": "Media IDs",
           "description": "Media numbers to renew (the mednr attribute of an item). Leave empty to renew everything currently renewable."
+        },
+        "categories": {
+          "name": "Media types",
+          "description": "Only renew items of these media types. Combined with media IDs if both are given."
         }
+      }
+    }
+  },
+  "selector": {
+    "categories": {
+      "options": {
+        "book": "Books",
+        "tonie": "Tonies",
+        "cd": "CDs",
+        "video": "Videos",
+        "game": "Games"
       }
     }
   }

@@ -16,6 +16,10 @@ DEFAULT_SCAN_HOURS = 6
 DEFAULT_DUE_SOON_DAYS = 3
 MIN_SCAN_HOURS = 1
 MAX_SCAN_HOURS = 24
+CONF_AUTO_RENEW = "auto_renew"
+CONF_AUTO_RENEW_DAYS = "auto_renew_days"
+CONF_AUTO_RENEW_CATEGORIES = "auto_renew_categories"  # empty = all categories
+DEFAULT_AUTO_RENEW_DAYS = 2
 
 # Loan.category values -> count sensor keys
 CATEGORIES = ("book", "tonie", "cd", "video", "game")
@@ -24,6 +28,12 @@ CATEGORIES = ("book", "tonie", "cd", "video", "game")
 SERVICE_RENEW = "renew"
 ATTR_CONFIG_ENTRY_ID = "config_entry_id"
 ATTR_MEDIA_IDS = "media_ids"
+ATTR_CATEGORIES = "categories"
 EVENT_RENEWAL = "findus_opac_renewal"
 # Findus applies renewal requests on the library's next sync; re-check after this delay.
 RENEW_RECHECK_MINUTES = 30
+
+# Bundled Lovelace card (frontend/findus-opac-card.js); bump CARD_VERSION to bust browser caches.
+CARD_FILE = "findus-opac-card.js"
+CARD_URL = f"/{DOMAIN}/{CARD_FILE}"
+CARD_VERSION = "0.3.0"

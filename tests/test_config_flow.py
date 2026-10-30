@@ -10,6 +10,9 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.findus_opac.config_flow import normalize_subdomain
 from custom_components.findus_opac.const import (
+    CONF_AUTO_RENEW,
+    CONF_AUTO_RENEW_CATEGORIES,
+    CONF_AUTO_RENEW_DAYS,
     CONF_DUE_SOON_DAYS,
     CONF_SCAN_HOURS,
     CONF_SECRET,
@@ -146,7 +149,32 @@ async def test_options_flow_reloads(hass, opac, loaded_entry):
     )
     await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert loaded_entry.options == {CONF_SCAN_HOURS: 12, CONF_DUE_SOON_DAYS: 5}
+    assert loaded_entry.options == {
+        CONF_SCAN_HOURS: 12,
+        CONF_DUE_SOON_DAYS: 5,
+        CONF_AUTO_RENEW: False,
+        CONF_AUTO_RENEW_DAYS: 2,
+        CONF_AUTO_RENEW_CATEGORIES: [],
+    }
     coordinator = loaded_entry.runtime_data
     assert coordinator.update_interval == timedelta(hours=12)
     assert coordinator.due_soon_days == 5
+
+
+async def test_options_flow_saves_auto_renew(hass, opac, loaded_entry):
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_SCAN_HOURS: 6,
+            CONF_DUE_SOON_DAYS: 3,
+            CONF_AUTO_RENEW: True,
+            CONF_AUTO_RENEW_DAYS: 4,
+            CONF_AUTO_RENEW_CATEGORIES: ["tonie", "cd"],
+        },
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert loaded_entry.options[CONF_AUTO_RENEW] is True
+    assert loaded_entry.options[CONF_AUTO_RENEW_DAYS] == 4
+    assert loaded_entry.options[CONF_AUTO_RENEW_CATEGORIES] == ["tonie", "cd"]

@@ -77,7 +77,7 @@ One device per account with these entities (entity IDs start with the account na
 | Renew all | Button | Submits the renewal request for all renewable items |
 
 Each entry in `items` has: `mednr`, `title`, `author`, `media_type`, `category`
-(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `note`.
+(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `note`, `cover` (cover image URL or empty).
 The media type comes from the library (e.g. "Kinder- und Jugendliteratur") and is mapped to a
 category by keyword; anything unknown counts as a book.
 

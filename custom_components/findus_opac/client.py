@@ -19,6 +19,7 @@ ROW_RE = re.compile(
     r'<tr class="(?:odd|even) verlaengerung_ist_moeglich_(?P<ok>ja|nein)">(?P<body>.*?)</tr>',
     re.S,
 )
+COVER_RE = re.compile(r'<img class="coverscan"[^>]*?src="(https://[^"]+)"')
 HIDDEN_RE = re.compile(r'<input type="hidden" name="(\w+)" value="([^"]*)"')
 FORM_RE = re.compile(r'<form method="POST"[^>]*>\s*(?:<input type="hidden"[^>]*>\s*)+', re.I)
 LOGIN_MARKER = 'name="lesernr" type="text"'
@@ -47,6 +48,7 @@ class Loan:
     due: date
     renewable: bool
     note: str = ""
+    cover_url: str = ""
 
     @property
     def category(self) -> str:
@@ -123,6 +125,8 @@ def parse_account(page: str) -> Account:
         body = m["body"]
         title_cell = _cell(body, "spaltetitel")
         tm = re.search(r"<b>(.*?)</b>", title_cell, re.S)
+        media_cell = _cell(body, "spaltemedienart")
+        cover = COVER_RE.search(media_cell)
         renewable = m["ok"] == "ja"
         try:
             due = date.fromisoformat(_hint(_cell(body, "spalteausleihfrist")))
@@ -133,10 +137,11 @@ def parse_account(page: str) -> Account:
                 mednr=m["mednr"],
                 title=_text(tm.group(1)) if tm else _hint(title_cell),
                 author=_hint(_cell(body, "spalteautor")),
-                media_type=_hint(_cell(body, "spaltemedienart")),
+                media_type=_hint(media_cell),
                 due=due,
                 renewable=renewable,
                 note="" if renewable else _renew_note(_cell(body, "spalteverlaengerung")),
+                cover_url=htmllib.unescape(cover.group(1)) if cover else "",
             )
         )
     if not loans and ACCOUNT_MARKER not in page and EMPTY_MARKER not in page:

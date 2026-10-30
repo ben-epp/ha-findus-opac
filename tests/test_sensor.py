@@ -59,12 +59,14 @@ async def test_items_attribute_shape(setup):
     first = items[0]
     assert set(first) == {
         "mednr", "title", "author", "media_type", "category",
-        "due", "days_left", "renewable", "note",
+        "due", "days_left", "renewable", "note", "cover",
     }
     assert (first["title"], first["days_left"], first["category"]) == ("Wale & Delfine", -17, "book")
     assert first["note"] == "Das Medium ist vorbestellt."
+    assert first["cover"] == ""
     tonie = setup("sensor", "tonie").attributes["items"]
     assert [i["mednr"] for i in tonie] == ["0900000101"]
+    assert tonie[0]["cover"].endswith("/4000000000017.jpg")
     assert setup("sensor", "next_due").attributes["titles"] == ["Wale & Delfine"]
 
 
