@@ -1,9 +1,10 @@
 """Daily due-date notifications and renewal notices via notify services."""
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from datetime import date, time, timedelta
 import logging
+import re
 from typing import Any
 
 from homeassistant.core import Event, HomeAssistant, callback
@@ -11,6 +12,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import dt as dt_util
 
 from .client import Loan
@@ -32,114 +34,91 @@ _LOGGER = logging.getLogger(__name__)
 MOBILE_ACTION_EVENT = "mobile_app_notification_action"
 CARD_THRESHOLDS = (30, 7)  # days before the library card expires
 
-WEEKDAYS = {
-    "de": ("Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."),
-    "en": ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"),
-}
-MONTHS_EN = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+# Texts live in translations/<lang>.json under "exceptions" (the only free-form text
+# section hassfest allows); keys start with this prefix, e.g. notify_title.
+TEXT_PREFIX = "notify_"
 
-TEXT = {
-    "de": {
-        "title": "Bücherei: {account}",
-        "renewable": " (verlängerbar)",
-        "pending": " (Verlängerung beantragt)",
-        "overdue": "Überfällig seit {n} {days}: {items}",
-        "day": ("Tag", "Tagen"),
-        "today": "Heute fällig: {items}",
-        "soon": "Fällig am {date}: {items}",
-        "card": "Ausweis gültig bis {date} – bitte verlängern lassen",
-        "card_expired": "Ausweis abgelaufen seit {date} – bitte verlängern lassen",
-        "requested": "Verlängerung beantragt: {items}",
-        "renewed": "Verlängert bis {date}: {items}",
-        "auto": "Automatisch: ",
-        "failed": "Verlängerung fehlgeschlagen: {error}",
-        "not_accepted": "Verlängerung nicht angenommen: {items}",
-        "action": "Verlängern",
-    },
-    "en": {
-        "title": "Library: {account}",
-        "renewable": " (renewable)",
-        "pending": " (renewal requested)",
-        "overdue": "Overdue for {n} {days}: {items}",
-        "day": ("day", "days"),
-        "today": "Due today: {items}",
-        "soon": "Due {date}: {items}",
-        "card": "Library card valid until {date} – please have it renewed",
-        "card_expired": "Library card expired on {date} – please have it renewed",
-        "requested": "Renewal requested: {items}",
-        "renewed": "Renewed until {date}: {items}",
-        "auto": "Automatic: ",
-        "failed": "Renewal failed: {error}",
-        "not_accepted": "Renewal not accepted: {items}",
-        "action": "Renew",
-    },
-}
+Texts = Mapping[str, str]
 
 
-def _lang(language: str | None) -> str:
-    return "de" if (language or "").lower().startswith("de") else "en"
+async def async_load_texts(hass: HomeAssistant, language: str) -> dict[str, str]:
+    """Notification texts in `language`, English for missing keys: {key without prefix: text}."""
+    raw = await async_get_translations(hass, language, "exceptions", [DOMAIN])
+    head = f"component.{DOMAIN}.exceptions.{TEXT_PREFIX}"
+    return {k[len(head):].removesuffix(".message"): v for k, v in raw.items() if k.startswith(head)}
 
 
-def _short_date(lang: str, d: date) -> str:
+def _format_date(t: Texts, pattern: str, d: date) -> str:
+    """Date tokens (no braces, so each language may use its own set): %a weekday, %b month
+    name, %d day, %m month, %D/%M two-digit day/month, %Y year."""
+    names = {
+        "%a": t["weekdays"].split(",")[d.weekday()],
+        "%b": t["months"].split(",")[d.month - 1],
+        "%d": str(d.day),
+        "%m": str(d.month),
+        "%D": f"{d.day:02d}",
+        "%M": f"{d.month:02d}",
+        "%Y": str(d.year),
+    }
+    return re.sub(r"%[abdmDMY]", lambda m: names[m[0]], t[pattern])
+
+
+def _short_date(t: Texts, d: date) -> str:
     """'Fr., 8.11.' / 'Fri 8 Nov'."""
-    wd = WEEKDAYS[lang][d.weekday()]
-    return f"{wd}, {d.day}.{d.month}." if lang == "de" else f"{wd} {d.day} {MONTHS_EN[d.month - 1]}"
+    return _format_date(t, "date_short", d)
 
 
-def _long_date(lang: str, d: date) -> str:
+def _long_date(t: Texts, d: date) -> str:
     """'15.06.2027' / '15 Jun 2027'."""
-    return f"{d:%d.%m.%Y}" if lang == "de" else f"{d.day} {MONTHS_EN[d.month - 1]} {d.year}"
+    return _format_date(t, "date_long", d)
 
 
-def _items(lang: str, loans: Iterable[Loan]) -> str:
-    t = TEXT[lang]
-    def suffix(l: Loan) -> str:
-        return t["renewable"] if l.renewable else t["pending"] if l.renew_requested else ""
+def _items(t: Texts, loans: Iterable[Loan]) -> str:
+    def name(l: Loan) -> str:
+        if l.renewable:
+            return f"{l.title} ({t['renewable']})"
+        return f"{l.title} ({t['pending']})" if l.renew_requested else l.title
 
-    return ", ".join(f"{l.title}{suffix(l)}" for l in loans)
+    return ", ".join(name(l) for l in loans)
 
 
 def build_message(
-    lang: str,
+    t: Texts,
     account_name: str,
     loans_by_kind: dict[str, list[Loan]],
     card_until: date | None,
     today: date,
 ) -> tuple[str, str]:
     """(title, message) for one daily run. `loans_by_kind`: overdue / due_today / due_soon."""
-    lang = _lang(lang)
-    t = TEXT[lang]
     lines: list[str] = []
 
     by_days: dict[int, list[Loan]] = {}
     for l in loans_by_kind.get("overdue", []):
         by_days.setdefault(-l.days_left(today), []).append(l)
     for n in sorted(by_days, reverse=True):
-        days = t["day"][0] if n == 1 else t["day"][1]
-        lines.append(t["overdue"].format(n=n, days=days, items=_items(lang, by_days[n])))
+        key = "overdue_one" if n == 1 else "overdue_other"
+        lines.append(t[key].format(count=n, items=_items(t, by_days[n])))
 
     if today_loans := loans_by_kind.get("due_today"):
-        lines.append(t["today"].format(items=_items(lang, today_loans)))
+        lines.append(t["due_today"].format(items=_items(t, today_loans)))
 
     by_due: dict[date, list[Loan]] = {}
     for l in loans_by_kind.get("due_soon", []):
         by_due.setdefault(l.due, []).append(l)
     for d in sorted(by_due):
-        lines.append(t["soon"].format(date=_short_date(lang, d), items=_items(lang, by_due[d])))
+        lines.append(t["due_on"].format(date=_short_date(t, d), items=_items(t, by_due[d])))
 
     if card_until is not None:
         key = "card_expired" if card_until < today else "card"
-        lines.append(t[key].format(date=_long_date(lang, card_until)))
+        lines.append(t[key].format(date=_long_date(t, card_until)))
 
     return t["title"].format(account=account_name), "\n".join(lines)
 
 
 def build_renewal_message(
-    lang: str, account_name: str, items: list[dict[str, Any]], trigger: str
+    t: Texts, account_name: str, items: list[dict[str, Any]], trigger: str
 ) -> tuple[str, str]:
     """(title, message) for a findus_opac_renewal event payload."""
-    lang = _lang(lang)
-    t = TEXT[lang]
     lines: list[str] = []
     requested = [i["title"] for i in items if i.get("status") == "requested"]
     if requested:
@@ -150,12 +129,12 @@ def build_renewal_message(
             by_due.setdefault(i["new_due"], []).append(i["title"])
     for due in sorted(by_due):
         d = date.fromisoformat(due)
-        lines.append(t["renewed"].format(date=_short_date(lang, d), items=", ".join(by_due[due])))
+        lines.append(t["renewed"].format(date=_short_date(t, d), items=", ".join(by_due[due])))
     if failed := [i["title"] for i in items if i.get("status") == "failed"]:
         lines.append(t["not_accepted"].format(items=", ".join(failed)))
     message = "\n".join(lines)
     if trigger == "auto" and message:
-        message = t["auto"] + message
+        message = t["auto"].format(message=message)
     return t["title"].format(account=account_name), message
 
 
@@ -181,9 +160,8 @@ class FindusNotifier:
         self._store: Store[dict[str, str]] = Store(hass, 1, f"{DOMAIN}.notified.{self.entry_id}")
         self._sent: dict[str, str] | None = None
 
-    @property
-    def lang(self) -> str:
-        return _lang(self.hass.config.language)
+    async def _async_texts(self) -> dict[str, str]:
+        return await async_load_texts(self.hass, self.hass.config.language)
 
     @callback
     def async_start(self) -> Callable[[], None]:
@@ -260,16 +238,17 @@ class FindusNotifier:
         if not new_keys:
             await self._store.async_save(sent)
             return
+        texts = await self._async_texts()
         title, message = build_message(
-            self.lang, self.coordinator.account_name, kinds, card_until, today
+            texts, self.coordinator.account_name, kinds, card_until, today
         )
         renewable = any(l.renewable for group in kinds.values() for l in group)
-        await self._async_send(title, message, with_action=renewable)
+        await self._async_send(title, message, action_title=texts["action"] if renewable else None)
         for key in new_keys:
             sent[key] = today.isoformat()
         await self._store.async_save(sent)
 
-    async def _async_send(self, title: str, message: str, with_action: bool = False) -> None:
+    async def _async_send(self, title: str, message: str, action_title: str | None = None) -> None:
         for target in self.targets:
             if not self.hass.services.has_service("notify", target):
                 _LOGGER.warning("Notify service notify.%s not found; skipping", target)
@@ -277,8 +256,8 @@ class FindusNotifier:
             payload: dict[str, Any] = {"title": title, "message": message}
             if target.startswith("mobile_app_"):
                 data: dict[str, Any] = {"tag": f"findus_opac_{self.entry_id}", "group": "findus_opac"}
-                if with_action:
-                    data["actions"] = [{"action": self.action, "title": TEXT[self.lang]["action"]}]
+                if action_title:
+                    data["actions"] = [{"action": self.action, "title": action_title}]
                 payload["data"] = data
             try:
                 await self.hass.services.async_call("notify", target, payload, blocking=False)
@@ -291,15 +270,16 @@ class FindusNotifier:
         try:
             await self.coordinator.async_renew()
         except HomeAssistantError as err:
-            title = TEXT[self.lang]["title"].format(account=self.coordinator.account_name)
-            await self._async_send(title, TEXT[self.lang]["failed"].format(error=err))
+            texts = await self._async_texts()
+            title = texts["title"].format(account=self.coordinator.account_name)
+            await self._async_send(title, texts["failed"].format(error=err))
 
     async def _async_handle_renewal(self, event: Event) -> None:
         data = event.data
         if data.get("config_entry_id") != self.entry_id or not data.get("items"):
             return
         title, message = build_renewal_message(
-            self.lang, self.coordinator.account_name, data["items"], data.get("trigger", "manual")
+            await self._async_texts(), self.coordinator.account_name, data["items"], data.get("trigger", "manual")
         )
         if message:
             await self._async_send(title, message)

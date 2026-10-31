@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from datetime import date
+import json
+from pathlib import Path
 
 import pytest
 from pytest_homeassistant_custom_component.common import (
@@ -19,7 +21,11 @@ from custom_components.findus_opac.const import (
     DOMAIN,
     EVENT_RENEWAL,
 )
-from custom_components.findus_opac.notifications import build_message, build_renewal_message
+from custom_components.findus_opac.notifications import (
+    async_load_texts,
+    build_message,
+    build_renewal_message,
+)
 
 from .conftest import CARD, ENTRY_DATA
 
@@ -269,6 +275,26 @@ async def test_renewal_notices_can_be_disabled(hass, freezer, opac, de):
     assert calls == []
 
 
+TRANSLATIONS = Path(__file__).parent.parent / "custom_components" / "findus_opac" / "translations"
+
+
+def texts(lang: str) -> dict[str, str]:
+    """Notification texts straight from translations/<lang>.json."""
+    exc = json.loads((TRANSLATIONS / f"{lang}.json").read_text())["exceptions"]
+    return {k.removeprefix("notify_"): v["message"] for k, v in exc.items() if k.startswith("notify_")}
+
+
+async def test_texts_load_through_ha_with_english_fallback(hass):
+    assert await async_load_texts(hass, "de") == texts("de")
+    assert await async_load_texts(hass, "fr") == texts("en")
+
+
+def test_translations_have_same_notify_keys():
+    keys = {lang: set(texts(lang)) for lang in ("en", "de")}
+    assert keys["en"] == keys["de"]
+    assert len(keys["en"]) > 10
+
+
 def _loan(mednr, title, due, renewable=False):
     return Loan(mednr=mednr, title=title, author="", media_type="", due=due, renewable=renewable)
 
@@ -276,7 +302,7 @@ def _loan(mednr, title, due, renewable=False):
 def test_build_message_de():
     today = date(2026, 11, 6)
     title, msg = build_message(
-        "de",
+        texts("de"),
         "Kinder",
         {
             "overdue": [_loan("1", "A", date(2026, 11, 5)), _loan("2", "B", date(2026, 11, 3))],
@@ -304,7 +330,7 @@ def test_build_message_de():
 def test_build_message_en_and_expired_card():
     today = date(2026, 11, 6)
     title, msg = build_message(
-        "en-GB",
+        texts("en"),
         "Kids",
         {"due_soon": [_loan("1", "A", date(2026, 11, 8), renewable=True)]},
         date(2026, 11, 1),
@@ -319,7 +345,7 @@ def test_build_message_en_and_expired_card():
 
 def test_build_renewal_message_en():
     title, msg = build_renewal_message(
-        "en",
+        texts("en"),
         "Kids",
         [{"title": "A", "status": "renewed", "new_due": "2026-12-04"}],
         "manual",
@@ -329,6 +355,6 @@ def test_build_renewal_message_en():
 
 def test_renewal_message_failed_and_pending_suffix():
     _, msg = build_renewal_message(
-        "de", "Kinder", [{"title": "A", "status": "failed"}, {"title": "B", "status": "requested"}], "manual"
+        texts("de"), "Kinder", [{"title": "A", "status": "failed"}, {"title": "B", "status": "requested"}], "manual"
     )
     assert msg == "Verlängerung beantragt: B\nVerlängerung nicht angenommen: A"

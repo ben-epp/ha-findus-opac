@@ -293,6 +293,20 @@ content: >
 Das Fuchs-Symbol ist eine eigene Zeichnung (`images/fox.svg`) und **nicht** das Logo von
 Findus. Neuere Home-Assistant-Versionen zeigen es automatisch an (Ordner `brand/`).
 
+## Sprachen
+
+Deutsch und Englisch. Eine weitere Sprache braucht zwei Dateien:
+
+1. `custom_components/findus_opac/translations/<sprache>.json` – Kopie von `en.json`,
+   übersetzt: Einrichtung, Optionen, Entitäten, Fehler, Dienst **und** Benachrichtigungen
+   (Schlüssel `notify_*` unter `exceptions`). Platzhalter in `{…}` unverändert lassen.
+   Datumsformate (`notify_date_short`, `notify_date_long`) nutzen `%a` Wochentag, `%b`
+   Monatsname, `%d`/`%m` Tag/Monat, `%D`/`%M` zweistellig, `%Y` Jahr.
+2. `frontend/findus-opac-card.js` – ein Block in `TEXT` für die Karte.
+
+Fehlende Texte fallen auf Englisch zurück. Titel, Medienarten und Hinweise der Bücherei
+kommen von Findus und bleiben deutsch.
+
 ## Datenschutz
 
 - Ausweisnummer und Geburtsdatum/Passwort liegen im Konfigurationseintrag von Home Assistant

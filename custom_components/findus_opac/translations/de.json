@@ -137,6 +137,63 @@
     },
     "entry_not_found": {
       "message": "Kein geladenes Findus-Konto mit der Konfigurations-ID {config_entry_id}."
+    },
+    "notify_title": {
+      "message": "Bücherei: {account}"
+    },
+    "notify_renewable": {
+      "message": "verlängerbar"
+    },
+    "notify_pending": {
+      "message": "Verlängerung beantragt"
+    },
+    "notify_overdue_one": {
+      "message": "Überfällig seit 1 Tag: {items}"
+    },
+    "notify_overdue_other": {
+      "message": "Überfällig seit {count} Tagen: {items}"
+    },
+    "notify_due_today": {
+      "message": "Heute fällig: {items}"
+    },
+    "notify_due_on": {
+      "message": "Fällig am {date}: {items}"
+    },
+    "notify_card": {
+      "message": "Ausweis gültig bis {date} – bitte verlängern lassen"
+    },
+    "notify_card_expired": {
+      "message": "Ausweis abgelaufen seit {date} – bitte verlängern lassen"
+    },
+    "notify_requested": {
+      "message": "Verlängerung beantragt: {items}"
+    },
+    "notify_renewed": {
+      "message": "Verlängert bis {date}: {items}"
+    },
+    "notify_auto": {
+      "message": "Automatisch: {message}"
+    },
+    "notify_failed": {
+      "message": "Verlängerung fehlgeschlagen: {error}"
+    },
+    "notify_not_accepted": {
+      "message": "Verlängerung nicht angenommen: {items}"
+    },
+    "notify_action": {
+      "message": "Verlängern"
+    },
+    "notify_weekdays": {
+      "message": "Mo.,Di.,Mi.,Do.,Fr.,Sa.,So."
+    },
+    "notify_months": {
+      "message": "Jan.,Feb.,März,Apr.,Mai,Juni,Juli,Aug.,Sep.,Okt.,Nov.,Dez."
+    },
+    "notify_date_short": {
+      "message": "%a, %d.%m."
+    },
+    "notify_date_long": {
+      "message": "%D.%M.%Y"
     }
   },
   "services": {
