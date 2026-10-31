@@ -9,7 +9,7 @@ from homeassistant.components.lovelace.const import LOVELACE_DATA
 
 from custom_components.findus_opac import _async_ensure_lovelace_resource, _async_register_card
 
-URL = "/findus_opac/findus-opac-card.js?v=0.3.2"
+URL = "/findus_opac/findus-opac-card.js?v=0.5.0"
 
 COMPONENT = Path(__file__).parent.parent / "custom_components" / "findus_opac"
 

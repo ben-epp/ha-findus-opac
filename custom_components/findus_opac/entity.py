@@ -23,6 +23,7 @@ def loan_dict(loan: Loan, today: date) -> dict[str, Any]:
         "due": loan.due.isoformat(),
         "days_left": loan.days_left(today),
         "renewable": loan.renewable,
+        "renew_requested": loan.renew_requested,
         "note": loan.note,
         "cover": loan.cover_url,
         "series": loan.series,

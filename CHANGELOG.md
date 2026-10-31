@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 – unreleased
+
+- Verlängerung mit echtem Konto geprüft: ein einziger Schritt, die Bücherei bestätigt mit
+  „OK, Verlängerungsantrag wurde gestellt“.
+- Medien mit gestelltem Verlängerungsantrag verschwanden bis zum nächsten Abgleich aus der
+  Liste – sie bleiben jetzt gelistet, nicht verlängerbar, mit neuem Attribut
+  `renew_requested` und Hinweis „Verlängerung beantragt“ in Karte und Benachrichtigung.
+- Neuer Status `failed`, wenn die Bücherei den Antrag nicht annimmt; der Button/Dienst meldet
+  dann einen Fehler.
+- Doku: neue Leihfrist zählt ab dem Tag des Antrags.
+
 ## 0.4.0 – unreleased
 
 - Eingebaute Benachrichtigungen (Optionen „Benachrichtigen“, Uhrzeit, Anlässe): tägliche

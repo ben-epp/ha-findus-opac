@@ -11,6 +11,8 @@ from custom_components.findus_opac.client import (
     parse_card_valid_until,
 )
 
+from .pages import renewal_ids, requested
+
 # Synthetic page: real Findus markup structure, invented data.
 PAGE = (Path(__file__).parent / "fixtures" / "konto_musterstadt.html").read_text()
 LOGIN_PAGE = (
@@ -28,6 +30,7 @@ class FakeOpac:
 
     def __init__(self, *pages: str) -> None:
         self.pages = list(pages) or [PAGE]
+        self.simulate = not pages  # default: answer renewals like Findus does
         self.gets: list[str] = []
         self.posts: list[dict[str, str]] = []
 
@@ -37,6 +40,8 @@ class FakeOpac:
 
     async def post(self, url: str, data: dict[str, str]) -> str:
         self.posts.append(data)
+        if self.simulate and renewal_ids(data):
+            return requested(PAGE, renewal_ids(data))
         return self.pages.pop(0) if len(self.pages) > 1 else self.pages[0]
 
     def client(self) -> FindusClient:
@@ -164,11 +169,43 @@ async def test_renew_detects_moved_due_date():
 
 
 async def test_renew_confirmation_page_triggers_reload():
-    opac = FakeOpac(PAGE, "<html><p>Ihr Antrag wurde gespeichert.</p></html>", PAGE)
+    reloaded = requested(PAGE, ["0900000102"])
+    opac = FakeOpac(PAGE, "<html><p>Ihr Antrag wurde gespeichert.</p></html>", reloaded)
     account, outcomes = await opac.client().renew(["0900000102"])
     assert len(account.loans) == 5
     assert len(opac.posts) == 3  # login, renew, reload login
     assert outcomes[0].status == "requested"
+
+
+def test_requested_row_is_kept_but_not_renewable():
+    acc = parse_account(requested(PAGE, ["0900000101"]))
+    assert len(acc.loans) == 5
+    loan = acc.loan("0900000101")
+    assert (loan.renewable, loan.renew_requested) == (False, True)
+    assert loan.title == "Der kleine Drache"
+    assert loan.note == "Verlängerung wurde beantragt am 31.10.2026 2:39 Uhr"
+    assert not acc.loan("0900000102").renew_requested
+
+
+async def test_renew_reads_requested_marker_and_banner():
+    _, outcomes = await FakeOpac().client().renew(["0900000101"])
+    assert [(o.mednr, o.status, o.new_due) for o in outcomes] == [
+        ("0900000101", "requested", date(2026, 11, 6))
+    ]
+
+
+async def test_renew_unchanged_page_is_failed():
+    # Same page back: no banner, row not marked, due date unchanged.
+    opac = FakeOpac(PAGE, PAGE)
+    _, outcomes = await opac.client().renew(["0900000101"])
+    assert outcomes[0].status == "failed"
+
+
+async def test_renew_skips_already_requested():
+    opac = FakeOpac(requested(PAGE, ["0900000101"]))
+    _, outcomes = await opac.client().renew()
+    assert [o.mednr for o in outcomes] == ["0900000102"]
+    assert "verlaengere_nr_0900000101" not in opac.posts[-1]
 
 
 async def test_renew_ignores_non_renewable_ids():

@@ -19,8 +19,13 @@ nutzen (über 230, z. B. `alzey.findus-internet-opac.de`).
   Home Assistant können also einige Stunden alt sein. Häufigeres Abfragen bringt nichts.
 - Verlängern ist bei Findus ein **Verlängerungsantrag**. Die neue Leihfrist erscheint
   eventuell erst nach dem nächsten Abgleich der Bücherei. Die Integration meldet deshalb
-  pro Medium entweder `renewed` (neue Frist schon sichtbar) oder `requested` (Antrag gestellt)
-  und prüft nach 30 Minuten erneut.
+  pro Medium `renewed` (neue Frist schon sichtbar), `requested` (Antrag gestellt, im Konto als
+  „Verlängerung beantragt“ markiert) oder `failed` (Antrag nicht angenommen) und prüft nach
+  30 Minuten erneut. Bis zum Abgleich bleibt das Medium mit alter Frist gelistet, ist nicht
+  mehr verlängerbar und hat `renew_requested: true`.
+- Die neue Leihfrist zählt **ab dem Tag des Antrags**, nicht ab der alten Frist. Früh
+  verlängern verschenkt also Leihzeit – lieber kurz vor Fristende (Standard beim automatischen
+  Verlängern: 2 Tage vorher).
 - Verlängern ist nur möglich, wenn die Bücherei es zulässt – typischerweise erst
   **14 Tage vor der Rückgabefrist**, nicht bei vorbestellten Medien und nicht nach der
   maximalen Anzahl an Verlängerungen. Der Grund steht im Attribut `note` des Mediums.
@@ -113,7 +118,7 @@ Bücherei zuletzt hochgeladen hat – eine gerade am Tresen zurückgegebene Toni
 also noch ein paar Stunden in der Liste stehen.
 
 Jedes Element in `items` hat: `mednr`, `title`, `author`, `media_type`, `category`
-(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `note`, `cover` (Cover-URL oder leer).
+(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `renew_requested`, `note`, `cover` (Cover-URL oder leer).
 `cover` ist das Coverbild, das Findus selbst anzeigt (Tonies über den mycover-Dienst per EAN,
 Bücher über den Buchhandels-Coverdienst per ISBN).
 Die Medienart kommt von der Bücherei (z. B. „Kinder- und Jugendliteratur“) und wird

@@ -168,6 +168,12 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
             ) from err
         self.async_set_updated_data(account)
         self._after_renew(outcomes, "manual")
+        if outcomes and all(o.status == "failed" for o in outcomes):
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="renew_failed",
+                translation_placeholders={"error": "request not accepted by the library"},
+            )
         return outcomes
 
     @callback

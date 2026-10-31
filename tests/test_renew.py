@@ -12,6 +12,7 @@ from pytest_homeassistant_custom_component.common import async_capture_events, a
 from custom_components.findus_opac.const import DOMAIN, EVENT_RENEWAL
 
 from .conftest import PAGE
+from .pages import requested
 
 RENEWED = PAGE.replace(
     '<span class="sortierhinweis">2026-11-06</span>',
@@ -52,7 +53,8 @@ async def test_press_renews_all_renewable(hass, opac, loaded_entry):
 
 async def test_press_detects_renewed(hass, opac, loaded_entry):
     events = async_capture_events(hass, EVENT_RENEWAL)
-    opac.queue = [PAGE, RENEWED]  # login before renewal, then the renewal response
+    # login before renewal, then the response: 0101 moved, 0102 marked as requested
+    opac.queue = [PAGE, requested(RENEWED, ["0900000102"])]
     await _press(hass, loaded_entry)
     items = {i["mednr"]: i for i in events[0].data["items"]}
     assert items["0900000101"]["status"] == "renewed"
@@ -185,3 +187,19 @@ async def test_sync_button_refreshes(hass, opac, loaded_entry):
     assert opac.gets == gets + 1
     assert len(opac.posts) == posts + 1
     assert not any(k.startswith("verlaengere_nr_") for k in opac.posts[-1])
+
+
+async def test_renew_not_accepted_raises(hass, opac, loaded_entry):
+    opac.queue = [PAGE, PAGE]  # renewal response without banner or marked rows
+    with pytest.raises(HomeAssistantError) as exc:
+        await _press(hass, loaded_entry)
+    assert exc.value.translation_key == "renew_failed"
+
+
+async def test_pending_item_stays_listed(hass, opac, loaded_entry):
+    await _press(hass, loaded_entry)
+    state = hass.states.get("sensor.kinder_loans")
+    assert state.state == "5"
+    items = {i["mednr"]: i for i in state.attributes["items"]}
+    assert items["0900000101"]["renew_requested"] is True
+    assert items["0900000101"]["renewable"] is False
