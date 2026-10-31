@@ -16,9 +16,12 @@ PostFn = Callable[[str, dict[str, str]], Awaitable[str]]
 
 ROW_RE = re.compile(
     r"<!-- ausgeliehene_mednr = (?P<mednr>\w+) -->\s*"
-    r'<tr class="(?:odd|even) verlaengerung_ist_moeglich_(?P<ok>ja|nein)">(?P<body>.*?)</tr>',
+    r'<tr class="(?:odd|even)(?: (?P<state>[\w ]*))?">(?P<body>.*?)</tr>',
     re.S,
 )
+RENEWABLE_STATE = "verlaengerung_ist_moeglich_ja"
+REQUESTED_STATE = "verlaengerung_wurde_schon_beantragt"  # e.g. leserkonto_..._zelle
+RENEW_OK_RE = re.compile(r'class="alert alert-success"[^>]*>\s*OK, Verl(?:&auml;|ä)ngerungsantrag')
 COVER_RE = re.compile(r'<img class="coverscan"[^>]*?src="(https://[^"]+)"')
 HIDDEN_RE = re.compile(r'<input type="hidden" name="(\w+)" value="([^"]*)"')
 FORM_RE = re.compile(r'<form method="POST"[^>]*>\s*(?:<input type="hidden"[^>]*>\s*)+', re.I)
@@ -50,6 +53,7 @@ class Loan:
     note: str = ""
     cover_url: str = ""
     series: str = ""
+    renew_requested: bool = False  # Verlängerungsantrag pending until the next library sync
 
     @property
     def category(self) -> str:
@@ -86,7 +90,7 @@ class RenewOutcome:
     title: str
     old_due: date
     new_due: date | None
-    status: str  # "renewed" | "requested"
+    status: str  # "renewed" | "requested" | "failed"
 
 
 def _text(fragment: str) -> str:
@@ -170,7 +174,8 @@ def parse_account(page: str) -> Account:
         title, series = _title(title_cell)
         media_cell = _cell(body, "spaltemedienart")
         cover = COVER_RE.search(media_cell)
-        renewable = m["ok"] == "ja"
+        state = m["state"] or ""
+        renewable = RENEWABLE_STATE in state
         try:
             due = date.fromisoformat(_hint(_cell(body, "spalteausleihfrist")))
         except ValueError as err:
@@ -186,6 +191,7 @@ def parse_account(page: str) -> Account:
                 renewable=renewable,
                 note="" if renewable else _renew_note(_cell(body, "spalteverlaengerung")),
                 cover_url=htmllib.unescape(cover.group(1)) if cover else "",
+                renew_requested=REQUESTED_STATE in state,
             )
         )
     if not loans and ACCOUNT_MARKER not in page and EMPTY_MARKER not in page:
@@ -225,7 +231,9 @@ class FindusClient:
         """Renew the given items (default: all renewable). Non-renewable ids are skipped.
 
         Findus calls this a "Verlängerungsantrag": the library system may only apply it
-        on its next sync, so an unchanged due date is reported as "requested", not failed.
+        on its next sync. The account page then marks the row as requested and the due
+        date stays unchanged until then; such items are reported as "requested". Items that
+        are neither moved nor marked (and no success banner) are reported as "failed".
         """
         before = await self.fetch()
         wanted = set(mednrs) if mednrs else None
@@ -235,6 +243,7 @@ class FindusClient:
         data = {**before.form, "submit": " "}
         data.update({f"verlaengere_nr_{l.mednr}": "1" for l in targets})
         page = await self._post(self.url, data)
+        accepted = bool(RENEW_OK_RE.search(page))
         try:
             after = parse_account(page)
         except ParseError:
@@ -244,14 +253,19 @@ class FindusClient:
         outcomes = []
         for old in targets:
             new = after.loan(old.mednr)
-            moved = new is not None and new.due > old.due
+            if new is not None and new.due > old.due:
+                status = "renewed"
+            elif (new is not None and new.renew_requested) or (new is None and accepted):
+                status = "requested"
+            else:
+                status = "failed"
             outcomes.append(
                 RenewOutcome(
                     mednr=old.mednr,
                     title=old.title,
                     old_due=old.due,
                     new_due=new.due if new else None,
-                    status="renewed" if moved else "requested",
+                    status=status,
                 )
             )
         return after, outcomes

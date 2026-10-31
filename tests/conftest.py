@@ -19,6 +19,8 @@ from custom_components.findus_opac.const import (
     DOMAIN,
 )
 
+from .pages import renewal_ids, requested
+
 FIXTURES = Path(__file__).parent / "fixtures"
 PAGE = (FIXTURES / "konto_musterstadt.html").read_text()
 BASE_URL = "https://musterstadt.findus-internet-opac.de/cgi-bin/findus.fcgi.pl"
@@ -62,7 +64,10 @@ class FakeOpac:
     async def _post(self, method, url, data) -> AiohttpClientMockResponse:
         if self.exc is not None:
             return AiohttpClientMockResponse(method, url, exc=self.exc)
-        text = self.queue.pop(0) if self.queue else self.page
+        if self.queue:
+            text = self.queue.pop(0)
+        else:  # behave like Findus: a renewal POST marks the ticked rows as requested
+            text = requested(self.page, renewal_ids(data or {}))
         return AiohttpClientMockResponse(method, url, text=text)
 
     def reject_login(self) -> None:

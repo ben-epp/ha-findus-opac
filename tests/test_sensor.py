@@ -60,7 +60,7 @@ async def test_items_attribute_shape(setup):
     first = items[0]
     assert set(first) == {
         "mednr", "title", "author", "media_type", "category",
-        "due", "days_left", "renewable", "note", "cover", "series",
+        "due", "days_left", "renewable", "renew_requested", "note", "cover", "series",
     }
     assert (first["title"], first["days_left"], first["category"]) == (
         "Wieso? Weshalb? Warum? – Wale & Delfine", -17, "book"

@@ -19,8 +19,13 @@ due dates, overdue items and a renew button. Works with every library that uses
   hours old. Polling more often gains nothing.
 - Renewing is a **renewal request** ("Verlängerungsantrag") in Findus. The new due date may
   only appear after the library's next sync. The integration therefore reports each item as
-  `renewed` (new date already visible) or `requested` (request submitted) and checks again
-  after 30 minutes.
+  `renewed` (new date already visible), `requested` (request submitted, marked as
+  "Verlängerung beantragt" in the account) or `failed` (request not accepted) and checks again
+  after 30 minutes. Until the library syncs, the item stays listed with its old due date, is no
+  longer renewable and has `renew_requested: true`.
+- The new loan period counts **from the day of the request**, not from the old due date.
+  Renewing early wastes loan time – better shortly before the due date (auto-renew default:
+  2 days before).
 - Renewal only works when the library allows it – usually **from 14 days before the due date**,
   not for reserved items and not after the maximum number of renewals. The reason is in the
   item's `note` attribute.
@@ -107,7 +112,7 @@ One device per account with these entities (entity IDs start with the account na
 so a Tonie just returned at the desk may stay in the list for a few more hours.
 
 Each entry in `items` has: `mednr`, `title`, `author`, `media_type`, `category`
-(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `note`, `cover` (cover image URL or empty).
+(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `renew_requested`, `note`, `cover` (cover image URL or empty).
 `cover` is the cover image Findus itself shows (Tonies via the mycover service by EAN, books via
 the book trade cover service by ISBN).
 The media type comes from the library (e.g. "Kinder- und Jugendliteratur") and is mapped to a

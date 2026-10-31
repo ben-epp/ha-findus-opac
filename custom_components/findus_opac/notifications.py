@@ -42,6 +42,7 @@ TEXT = {
     "de": {
         "title": "Bücherei: {account}",
         "renewable": " (verlängerbar)",
+        "pending": " (Verlängerung beantragt)",
         "overdue": "Überfällig seit {n} {days}: {items}",
         "day": ("Tag", "Tagen"),
         "today": "Heute fällig: {items}",
@@ -52,11 +53,13 @@ TEXT = {
         "renewed": "Verlängert bis {date}: {items}",
         "auto": "Automatisch: ",
         "failed": "Verlängerung fehlgeschlagen: {error}",
+        "not_accepted": "Verlängerung nicht angenommen: {items}",
         "action": "Verlängern",
     },
     "en": {
         "title": "Library: {account}",
         "renewable": " (renewable)",
+        "pending": " (renewal requested)",
         "overdue": "Overdue for {n} {days}: {items}",
         "day": ("day", "days"),
         "today": "Due today: {items}",
@@ -67,6 +70,7 @@ TEXT = {
         "renewed": "Renewed until {date}: {items}",
         "auto": "Automatic: ",
         "failed": "Renewal failed: {error}",
+        "not_accepted": "Renewal not accepted: {items}",
         "action": "Renew",
     },
 }
@@ -89,7 +93,10 @@ def _long_date(lang: str, d: date) -> str:
 
 def _items(lang: str, loans: Iterable[Loan]) -> str:
     t = TEXT[lang]
-    return ", ".join(f"{l.title}{t['renewable'] if l.renewable else ''}" for l in loans)
+    def suffix(l: Loan) -> str:
+        return t["renewable"] if l.renewable else t["pending"] if l.renew_requested else ""
+
+    return ", ".join(f"{l.title}{suffix(l)}" for l in loans)
 
 
 def build_message(
@@ -134,7 +141,7 @@ def build_renewal_message(
     lang = _lang(lang)
     t = TEXT[lang]
     lines: list[str] = []
-    requested = [i["title"] for i in items if i.get("status") != "renewed"]
+    requested = [i["title"] for i in items if i.get("status") == "requested"]
     if requested:
         lines.append(t["requested"].format(items=", ".join(requested)))
     by_due: dict[str, list[str]] = {}
@@ -144,6 +151,8 @@ def build_renewal_message(
     for due in sorted(by_due):
         d = date.fromisoformat(due)
         lines.append(t["renewed"].format(date=_short_date(lang, d), items=", ".join(by_due[due])))
+    if failed := [i["title"] for i in items if i.get("status") == "failed"]:
+        lines.append(t["not_accepted"].format(items=", ".join(failed)))
     message = "\n".join(lines)
     if trigger == "auto" and message:
         message = t["auto"] + message

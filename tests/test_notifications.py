@@ -325,3 +325,10 @@ def test_build_renewal_message_en():
         "manual",
     )
     assert (title, msg) == ("Library: Kids", "Renewed until Fri 4 Dec: A")
+
+
+def test_renewal_message_failed_and_pending_suffix():
+    _, msg = build_renewal_message(
+        "de", "Kinder", [{"title": "A", "status": "failed"}, {"title": "B", "status": "requested"}], "manual"
+    )
+    assert msg == "Verlängerung beantragt: B\nVerlängerung nicht angenommen: A"
