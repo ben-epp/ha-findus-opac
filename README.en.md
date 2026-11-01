@@ -282,6 +282,20 @@ content: >
 The fox icon is an original drawing (`images/fox.svg`) and **not** the Findus logo. Recent
 Home Assistant versions pick it up automatically (folder `brand/`).
 
+## Languages
+
+German and English. Another language needs two files:
+
+1. `custom_components/findus_opac/translations/<lang>.json` – a translated copy of `en.json`:
+   setup, options, entities, errors, service **and** notifications (keys `notify_*` under
+   `exceptions`). Keep the `{…}` placeholders unchanged. Date formats (`notify_date_short`,
+   `notify_date_long`) use `%a` weekday, `%b` month name, `%d`/`%m` day/month, `%D`/`%M`
+   two digits, `%Y` year.
+2. `frontend/findus-opac-card.js` – one block in `TEXT` for the card.
+
+Missing texts fall back to English. Titles, media types and notes from the library come from
+Findus and stay German.
+
 ## Privacy
 
 - Card number and birth date/password are stored in Home Assistant's config entry

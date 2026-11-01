@@ -137,6 +137,63 @@
     },
     "entry_not_found": {
       "message": "No loaded Findus account with config entry ID {config_entry_id}."
+    },
+    "notify_title": {
+      "message": "Library: {account}"
+    },
+    "notify_renewable": {
+      "message": "renewable"
+    },
+    "notify_pending": {
+      "message": "renewal requested"
+    },
+    "notify_overdue_one": {
+      "message": "Overdue for 1 day: {items}"
+    },
+    "notify_overdue_other": {
+      "message": "Overdue for {count} days: {items}"
+    },
+    "notify_due_today": {
+      "message": "Due today: {items}"
+    },
+    "notify_due_on": {
+      "message": "Due {date}: {items}"
+    },
+    "notify_card": {
+      "message": "Library card valid until {date} – please have it renewed"
+    },
+    "notify_card_expired": {
+      "message": "Library card expired on {date} – please have it renewed"
+    },
+    "notify_requested": {
+      "message": "Renewal requested: {items}"
+    },
+    "notify_renewed": {
+      "message": "Renewed until {date}: {items}"
+    },
+    "notify_auto": {
+      "message": "Automatic: {message}"
+    },
+    "notify_failed": {
+      "message": "Renewal failed: {error}"
+    },
+    "notify_not_accepted": {
+      "message": "Renewal not accepted: {items}"
+    },
+    "notify_action": {
+      "message": "Renew"
+    },
+    "notify_weekdays": {
+      "message": "Mon,Tue,Wed,Thu,Fri,Sat,Sun"
+    },
+    "notify_months": {
+      "message": "Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec"
+    },
+    "notify_date_short": {
+      "message": "%a %d %b"
+    },
+    "notify_date_long": {
+      "message": "%d %b %Y"
     }
   },
   "services": {

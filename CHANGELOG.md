@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1 – unreleased
+
+- Benachrichtigungstexte liegen jetzt in `translations/<sprache>.json` (Schlüssel `notify_*`);
+  eine neue Sprache braucht nur noch diese Datei plus einen Block in der Karte. Abschnitt
+  „Sprachen“ in der README.
+
 ## 0.5.0 – unreleased
 
 - Verlängerung mit echtem Konto geprüft: ein einziger Schritt, die Bücherei bestätigt mit
