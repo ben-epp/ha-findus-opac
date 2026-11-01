@@ -102,6 +102,7 @@ One device per account with these entities (entity IDs start with the account na
 | Due today / Due soon / Overdue | Sensor | Number of items |
 | Renewable | Sensor | Number of items renewable right now |
 | Library card valid until | Sensor | Expiry date from the account banner ("Ihr Ausweis ist gültig bis …"); attribute `days_left` |
+| Library announcement | Sensor | The library's free-text notice (e.g. holiday closure, event); state = title, attributes `text` (capped at 2000 characters, then `truncated: true` and `url` to the website), `kind` (`closure` if it matches keywords such as "geschlossen", "Urlaub", "Ferien", else `info`), `images`. The card shows it as an expandable banner (`show_announcement`) |
 | Library card expires soon | Binary sensor | On 30 days before the card expires; unknown if the page shows no expiry |
 | Overdue items | Binary sensor | on when anything is overdue |
 | Renewal possible | Binary sensor | on when at least one item can be renewed |

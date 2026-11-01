@@ -107,6 +107,7 @@ Pro Konto ein Gerät mit diesen Entitäten (Entity-IDs beginnen mit dem Kontonam
 | Heute fällig / Bald fällig / Überfällig | Sensor | Anzahl Medien |
 | Verlängerbar | Sensor | Anzahl aktuell verlängerbarer Medien |
 | Ausweis gültig bis | Sensor | Ablaufdatum aus dem Hinweis im Leserkonto („Ihr Ausweis ist gültig bis …“); Attribut `days_left` |
+| Mitteilung der Bibliothek | Sensor | Freitext-Hinweis der Bücherei (z. B. Urlaub, Veranstaltung); Zustand = Titel, Attribute `text` (auf 2000 Zeichen gekürzt, dann `truncated: true` und `url` zur Webseite), `kind` (`closure` bei Schlüsselwörtern wie „geschlossen“, „Urlaub“, „Ferien“, sonst `info`), `images`. Die Karte zeigt ihn als aufklappbaren Banner (`show_announcement`) |
 | Ausweis läuft bald ab | Binärsensor | An ab 30 Tagen vor Ablauf; unbekannt, wenn die Seite kein Datum zeigt |
 | Überfällige Medien | Binärsensor | an, wenn etwas überfällig ist |
 | Verlängerung möglich | Binärsensor | an, wenn mindestens ein Medium verlängert werden kann |

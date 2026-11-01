@@ -2,6 +2,12 @@
 
 ## 0.5.1 – unreleased
 
+- Neuer Sensor „Mitteilung der Bibliothek“ mit dem Freitext-Hinweis der Bücherei (Titel als
+  Zustand; Attribute `text`, `kind`, `images`, `url`). Langer Text
+  wird bei 2000 Zeichen mit „…“ gekürzt und verlinkt auf die Webseite. Die Karte zeigt ihn als
+  aufklappbaren Banner, abschaltbar mit `show_announcement`. Ob Schließzeit oder Info, ist
+  eine Schlüsselwort-Schätzung.
+
 - Benachrichtigungstexte liegen jetzt in `translations/<sprache>.json` (Schlüssel `notify_*`);
   eine neue Sprache braucht nur noch diese Datei plus einen Block in der Karte. Abschnitt
   „Sprachen“ in der README.

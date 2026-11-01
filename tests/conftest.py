@@ -56,10 +56,14 @@ class FakeOpac:
     def __init__(self, mock: AiohttpClientMocker) -> None:
         self.mock = mock
         self.page = PAGE
+        self.login = LOGIN_PAGE
         self.queue: list[str] = []
         self.exc: Exception | None = None
-        mock.get(LOGIN_URL, text=LOGIN_PAGE)
+        mock.get(LOGIN_URL, side_effect=self._get)
         mock.post(BASE_URL, side_effect=self._post)
+
+    async def _get(self, method, url, data) -> AiohttpClientMockResponse:
+        return AiohttpClientMockResponse(method, url, text=self.login)
 
     async def _post(self, method, url, data) -> AiohttpClientMockResponse:
         if self.exc is not None:

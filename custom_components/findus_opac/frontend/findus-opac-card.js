@@ -32,6 +32,9 @@ const TEXT = {
     missing: (e) => `Entität ${e} nicht gefunden`,
     next: "nächste Rückgabe",
     renewOne: "Nur dieses Medium verlängern",
+    noticeMore: "Mehr anzeigen",
+    noticeLess: "Weniger anzeigen",
+    noticeSite: "Vollständig auf der Webseite der Bibliothek lesen",
     sync: "Jetzt mit der Bücherei abgleichen",
     synced: "Konto abgeglichen.",
     items: (n) => (n === 1 ? "1 Medium" : `${n} Medien`),
@@ -57,6 +60,9 @@ const TEXT = {
     missing: (e) => `Entity ${e} not found`,
     next: "next due",
     renewOne: "Renew only this item",
+    noticeMore: "Show more",
+    noticeLess: "Show less",
+    noticeSite: "Read the full notice on the library's website",
     sync: "Sync with the library now",
     synced: "Account synced.",
     items: (n) => (n === 1 ? "1 item" : `${n} items`),
@@ -73,6 +79,7 @@ const LABELS = {
     show_renew: "Verlängern-Knopf anzeigen",
     show_covers: "Cover anzeigen",
     show_card_expiry: "Ausweis-Gültigkeit anzeigen",
+    show_announcement: "Mitteilung der Bibliothek anzeigen",
     max_items: "Höchstens anzeigen (0 = alle)",
     warn_days: "Warnen ab Tagen vor Rückgabe",
     group_by: "Gruppieren (aufklappbar)",
@@ -84,6 +91,7 @@ const LABELS = {
     show_renew: "Show renew button",
     show_covers: "Show covers",
     show_card_expiry: "Show library card expiry",
+    show_announcement: "Show library announcement",
     max_items: "Maximum items (0 = all)",
     warn_days: "Warn days before due",
     group_by: "Group (collapsible)",
@@ -95,6 +103,7 @@ const DEFAULTS = {
   show_renew: true,
   show_covers: true,
   show_card_expiry: true,
+  show_announcement: true,
   max_items: 0,
   warn_days: 3,
   group_by: "due",
@@ -169,13 +178,15 @@ class FindusOpacCard extends HTMLElement {
     const syncId = deviceId ? findEntity(hass, deviceId, "button", "sync") : undefined;
     const cardSensor = deviceId ? findEntity(hass, deviceId, "sensor", "card_valid_until") : undefined;
     const cardState = cardSensor ? hass.states[cardSensor] : undefined;
+    const noticeId = deviceId ? findEntity(hass, deviceId, "sensor", "announcement") : undefined;
+    const notice = noticeId ? hass.states[noticeId] : undefined;
     const device = deviceId ? hass.devices?.[deviceId] : undefined;
     const entryId = device?.primary_config_entry || device?.config_entries?.[0];
 
     // Re-render only when something visible changed; hass updates arrive constantly.
     const key = JSON.stringify([
       st?.last_updated, st?.state, renewId, syncId, entryId, cardState?.state,
-      this._busy, this._busyItem, this._syncing, this._config, lang(hass), [...(this._open || [])],
+      notice?.last_updated, this._noticeOpen, this._busy, this._busyItem, this._syncing, this._config, lang(hass), [...(this._open || [])],
     ]);
     if (key === this._lastKey) return;
     this._lastKey = key;
@@ -292,6 +303,19 @@ class FindusOpacCard extends HTMLElement {
         days < 0 ? t.cardExpired(d) : t.cardValid(d),
       )}</div>`;
     }
+    let noticeBlock = "";
+    const na = notice?.attributes;
+    if (this._config.show_announcement && notice && !["unknown", "unavailable"].includes(notice.state) && na) {
+      const open = !!this._noticeOpen;
+      const http = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
+      const imgs = open ? (na.images || []).filter(http) : [];
+      noticeBlock = `<div class="notice ${na.kind === "closure" ? "closure" : "info"}">
+        <div class="ntitle"><ha-icon icon="${na.kind === "closure" ? "mdi:store-clock" : "mdi:information-outline"}"></ha-icon>${esc(notice.state)}</div>
+        <div class="ntext ${open ? "open" : ""}">${esc(na.truncated && http(na.url) ? na.text.replace(/…$/, "") : na.text)}${na.truncated && http(na.url) ? ` <a href="${esc(na.url)}" target="_blank" rel="noopener noreferrer" title="${esc(t.noticeSite)}">…</a>` : ""}</div>
+        ${imgs.map((u) => `<img class="nimg" src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer">`).join("")}
+        ${(na.text || "").length > 140 || (na.images || []).length ? `<button id="notice-toggle" class="link">${esc(open ? t.noticeLess : t.noticeMore)}</button>` : ""}
+      </div>`;
+    }
     const maxH = Number(this._config.max_height) || 0;
     const scrollTop = this.shadowRoot.querySelector(".list")?.scrollTop || 0;
     this.shadowRoot.innerHTML = `
@@ -309,6 +333,7 @@ class FindusOpacCard extends HTMLElement {
             }
           </div>
         </div>
+        ${noticeBlock}
         <div class="list" style="${maxH > 0 ? `max-height:${maxH}px;overflow-y:auto` : ""}">
           ${items.length ? rows : `<div class="empty">${esc(t.none)}</div>`}
           ${items.length > shown.length ? `<div class="more">${esc(t.more(items.length - shown.length))}</div>` : ""}
@@ -333,6 +358,10 @@ class FindusOpacCard extends HTMLElement {
         this._render();
       }),
     );
+    this.shadowRoot.getElementById("notice-toggle")?.addEventListener("click", () => {
+      this._noticeOpen = !this._noticeOpen;
+      this._render();
+    });
     this.shadowRoot.getElementById("sync")?.addEventListener("click", () => this._sync(syncId));
     this.shadowRoot.querySelectorAll("button.item-renew").forEach((btn) =>
       btn.addEventListener("click", () => this._renewOne(entryId, btn.dataset.mednr)),
@@ -412,6 +441,15 @@ const STYLE = `<style>
   .cardline ha-icon { --mdc-icon-size: 16px; }
   .cardline.soon { color: var(--warning-color); }
   .cardline.overdue { color: var(--error-color); font-weight: 500; }
+  .notice { margin: 8px 0; padding: 8px 12px; border-radius: 8px; border-left: 4px solid var(--info-color, #039be5);
+            background: var(--secondary-background-color); }
+  .notice.closure { border-left-color: var(--warning-color, #ffa600); }
+  .ntitle { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+  .ntitle ha-icon { --mdc-icon-size: 18px; flex: none; }
+  .ntext { margin-top: 4px; font-size: .9em; white-space: pre-line; overflow-wrap: anywhere; }
+  .ntext:not(.open) { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .nimg { display: block; max-width: 100%; margin-top: 8px; border-radius: 4px; }
+  .link { border: none; background: none; padding: 4px 0 0; cursor: pointer; color: var(--primary-color); font: inherit; font-size: .85em; }
   .badges { display: flex; gap: 6px; align-items: center; }
   .icon-btn { border: none; background: none; cursor: pointer; padding: 4px; border-radius: 50%;
               color: var(--secondary-text-color); line-height: 0; }
@@ -490,6 +528,7 @@ class FindusOpacCardEditor extends HTMLElement {
       { name: "show_renew", selector: { boolean: {} } },
       { name: "show_covers", selector: { boolean: {} } },
       { name: "show_card_expiry", selector: { boolean: {} } },
+      { name: "show_announcement", selector: { boolean: {} } },
       { name: "max_items", selector: { number: { min: 0, max: 50, mode: "box" } } },
       { name: "warn_days", selector: { number: { min: 0, max: 14, mode: "box" } } },
       {

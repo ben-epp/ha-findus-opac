@@ -1,6 +1,8 @@
 """Sensor and binary sensor states on the synthetic fixture."""
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from homeassistant.helpers import entity_registry as er
 
@@ -116,3 +118,27 @@ async def test_entity_names_use_account_device(setup):
     st = setup("sensor", "loans")
     assert st.attributes["friendly_name"] == "Kinder Loans"
     assert st.entity_id == "sensor.kinder_loans"
+
+
+NOTICE = (Path(__file__).parent / "fixtures" / "notice_closure.html").read_text()
+
+
+async def test_announcement_sensor_none_without_notice(setup):
+    st = setup("sensor", "announcement")
+    assert st is not None and st.state == "unknown"
+    assert "text" not in st.attributes
+
+
+async def test_announcement_sensor_with_notice(hass, freezer, opac, entry):
+    opac.login += NOTICE
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    eid = registry.async_get_entity_id("sensor", DOMAIN, f"{entry.entry_id}_announcement")
+    st = hass.states.get(eid)
+    assert st.state == "Urlaub der Bibliothek"
+    a = st.attributes
+    assert (a["kind"], a["truncated"]) == ("closure", False)
+    assert a["text"].startswith("Liebe Leser,") and len(a["images"]) == 1
+    assert a["url"].endswith("?customer=musterstadt")

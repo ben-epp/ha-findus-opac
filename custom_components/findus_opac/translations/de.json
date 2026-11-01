@@ -106,6 +106,9 @@
       },
       "card_valid_until": {
         "name": "Ausweis gültig bis"
+      },
+      "announcement": {
+        "name": "Mitteilung der Bibliothek"
       }
     },
     "binary_sensor": {

@@ -10,6 +10,7 @@ import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date
+from urllib.parse import urljoin
 
 GetFn = Callable[[str], Awaitable[str]]
 PostFn = Callable[[str, dict[str, str]], Awaitable[str]]
@@ -25,6 +26,20 @@ RENEW_OK_RE = re.compile(r'class="alert alert-success"[^>]*>\s*OK, Verl(?:&auml;
 COVER_RE = re.compile(r'<img class="coverscan"[^>]*?src="(https://[^"]+)"')
 HIDDEN_RE = re.compile(r'<input type="hidden" name="(\w+)" value="([^"]*)"')
 FORM_RE = re.compile(r'<form method="POST"[^>]*>\s*(?:<input type="hidden"[^>]*>\s*)+', re.I)
+NOTICE_OPEN_RE = re.compile(r'<div id="veranstaltungshinweis"[^>]*>', re.I)
+DIV_TAG_RE = re.compile(r"<(/?)div\b", re.I)
+NOTICE_TITLE_RE = re.compile(r"<h[12][^>]*>(.*?)</h[12]>", re.S | re.I)
+# Keyword guess, tuned on ~115 real notices: whole words only ("anschließend" is no closure),
+# and "bleibt ... offen" / "nicht geschlossen" cancel it. Only the start of the text is read.
+CLOSURE_RE = re.compile(
+    r"geschlossen|\bschlie(?:ß|ss)(?:ung|en)\b|bleibt[^\n]{0,40}\bzu\b|betriebsferien|betriebsruhe|\burlaub\b",
+    re.I,
+)
+NOT_CLOSED_RE = re.compile(r"(?:nicht|nie|kein\w*)\s+(?:\w+\s+)?geschlossen|bleibt[^\n]{0,40}\boffen\b", re.I)
+KIND_WINDOW = 400
+NOTICE_MAX_CHARS = 2000
+NOTICE_MAX_IMAGES = 3
+IMG_SRC_RE = re.compile(r'<img[^>]*?\ssrc=["\']([^"\']+)["\']', re.I)
 LOGIN_MARKER = 'name="lesernr" type="text"'
 ACCOUNT_MARKER = "findus_leserkonto_ausgeliehen_tabelle"
 EMPTY_MARKER = "findus_leserkonto"
@@ -73,10 +88,23 @@ class Loan:
 
 
 @dataclass
+class Announcement:
+    """Free-text library notice ("Veranstaltungshinweis"); `kind` is a keyword guess."""
+
+    title: str
+    text: str  # plain text, paragraphs separated by a blank line, capped
+    kind: str  # "closure" | "info"
+    truncated: bool = False  # text was cut at NOTICE_MAX_CHARS; `url` has the full notice
+    url: str = ""  # library's OPAC homepage, where the notice is shown in full
+    images: list[str] = field(default_factory=list)  # absolute http(s) URLs, at most NOTICE_MAX_IMAGES
+
+
+@dataclass
 class Account:
     loans: list[Loan] = field(default_factory=list)
     form: dict[str, str] = field(default_factory=dict)
     card_valid_until: date | None = None
+    announcement: Announcement | None = None
 
     def loan(self, mednr: str) -> Loan | None:
         return next((l for l in self.loans if l.mednr == mednr), None)
@@ -144,6 +172,40 @@ CARD_RE = re.compile(
 )
 
 
+def parse_announcement(page: str) -> Announcement | None:
+    """The library's notice box, if the page carries one. Free text, so `kind` is a guess."""
+    opening = NOTICE_OPEN_RE.search(page)
+    if not opening:
+        return None
+    raw, depth = page[opening.end() :], 1  # inner HTML up to the matching </div>
+    for tag in DIV_TAG_RE.finditer(raw):
+        depth += -1 if tag[1] else 1
+        if depth == 0:
+            raw = raw[: tag.start()]
+            break
+    images = [htmllib.unescape(u) for u in IMG_SRC_RE.findall(raw)]
+    body = re.sub(r"<img[^>]*>|<br[^>]*>", " ", raw, flags=re.I)
+    t = NOTICE_TITLE_RE.search(body)
+    title = _text(t.group(1)) if t else ""
+    rest = body[t.end() :] if t else body
+    paragraphs = [p for p in (_text(x) for x in re.split(r"</p>|</div>|<hr[^>]*>", rest, flags=re.I)) if p]
+    text = "\n\n".join(paragraphs)
+    if not title and not text:
+        return None
+    head = f"{title} {text[:KIND_WINDOW]}"
+    kind = "closure" if CLOSURE_RE.search(head) and not NOT_CLOSED_RE.search(head) else "info"
+    truncated = len(text) > NOTICE_MAX_CHARS
+    if truncated:
+        text = text[: NOTICE_MAX_CHARS - 1].rstrip() + "…"
+    return Announcement(
+        title=(title or paragraphs[0])[:255],
+        text=text,
+        kind=kind,
+        truncated=truncated,
+        images=images,
+    )
+
+
 def parse_card_valid_until(page: str) -> date | None:
     """Expiry date of the library card from the account banner, if shown."""
     m = CARD_RE.search(htmllib.unescape(page))
@@ -200,6 +262,7 @@ def parse_account(page: str) -> Account:
         loans=loans,
         form=hidden_fields(page) if loans else {},
         card_valid_until=parse_card_valid_until(page),
+        announcement=parse_announcement(page),
     )
 
 
@@ -210,12 +273,25 @@ class FindusClient:
         self._card, self._secret, self._get, self._post = card, secret, get, post
 
     @property
+    def home_url(self) -> str:
+        return f"{self.url}?customer={self.subdomain}"
+
+    def _announce(self, account: Account, *fallbacks: Announcement | None) -> None:
+        """Set the notice (first non-empty of the account's own and the fallbacks) with its link."""
+        account.announcement = next((a for a in (account.announcement, *fallbacks) if a), None)
+        if note := account.announcement:
+            note.url = self.home_url
+            urls = (urljoin(self.url, u) for u in note.images)  # relative srcs -> absolute
+            note.images = [u for u in urls if u.startswith(("https://", "http://"))][:NOTICE_MAX_IMAGES]
+
+    @property
     def login_url(self) -> str:
         return f"{self.url}?customer={self.subdomain}&leserkonto=1&submit=1"
 
     async def fetch(self) -> Account:
         """Log in and return the account. Each call is a fresh login; Findus is stateless."""
-        form = hidden_fields(await self._get(self.login_url))
+        login_page = await self._get(self.login_url)
+        form = hidden_fields(login_page)
         form.update(
             {
                 "customer": self.subdomain,
@@ -225,7 +301,10 @@ class FindusClient:
                 "gebdat": self._secret,
             }
         )
-        return parse_account(await self._post(self.url, form))
+        account = parse_account(await self._post(self.url, form))
+        # The notice is on every page; prefer the account page's, else the login page's.
+        self._announce(account, parse_announcement(login_page))
+        return account
 
     async def renew(self, mednrs: list[str] | None = None) -> tuple[Account, list[RenewOutcome]]:
         """Renew the given items (default: all renewable). Non-renewable ids are skipped.
@@ -268,4 +347,5 @@ class FindusClient:
                     status=status,
                 )
             )
+        self._announce(after, before.announcement)
         return after, outcomes
