@@ -8,6 +8,7 @@ from custom_components.findus_opac.client import (
     FindusClient,
     ParseError,
     parse_account,
+    parse_announcement,
     parse_card_valid_until,
 )
 
@@ -31,12 +32,13 @@ class FakeOpac:
     def __init__(self, *pages: str) -> None:
         self.pages = list(pages) or [PAGE]
         self.simulate = not pages  # default: answer renewals like Findus does
+        self.login = LOGIN_PAGE
         self.gets: list[str] = []
         self.posts: list[dict[str, str]] = []
 
     async def get(self, url: str) -> str:
         self.gets.append(url)
-        return LOGIN_PAGE
+        return self.login
 
     async def post(self, url: str, data: dict[str, str]) -> str:
         self.posts.append(data)
@@ -213,3 +215,98 @@ async def test_renew_ignores_non_renewable_ids():
     _, outcomes = await opac.client().renew(["0900000103"])
     assert outcomes == []
     assert len(opac.posts) == 1  # only the login, no renewal POST
+
+
+CLOSURE = (Path(__file__).parent / "fixtures" / "notice_closure.html").read_text()
+
+
+def _notice(title: str, *paragraphs: str, alt: int = 4) -> str:
+    body = "".join(f"<p>{p}</p>\n" for p in paragraphs)
+    return (
+        f'<div id="veranstaltungshinweis" class="findus_veranstaltung_alt_{alt}">'
+        f"<h1>{title}</h1>\n{body}</div>\n<P><div id=\"login_leserkonto\">"
+    )
+
+
+def test_announcement_closure_from_real_markup():
+    a = parse_announcement(CLOSURE)
+    assert a is not None
+    assert (a.title, a.kind) == ("Urlaub der Bibliothek", "closure")
+    assert a.text.startswith("Liebe Leser,\n\ndie Bibliothek ist vom 21.10.2026")
+    assert "<" not in a.text and "Bild ohne" not in a.text
+
+
+def test_announcement_event_is_info():
+    a = parse_announcement(_notice("Lesung für Kinder", "Am 12.11.2026 um 15 Uhr lesen wir vor."))
+    assert a is not None and a.kind == "info"
+
+
+@pytest.mark.parametrize(
+    ("title", "body", "kind"),
+    [
+        ("Allerheiligen", "Am 01.11.2026 ist die Bücherei geschlossen.", "closure"),
+        ("Herbstferien", "Die Bücherei bleibt vom 26. bis 30.10. zu.", "closure"),
+        ("Vorlesen", "Anschließend wird gebastelt.", "info"),  # "anschließend" is no closure
+        ("In den Herbstferien bleibt die Bücherei offen", "", "info"),
+        ("Info", "Wir sind nicht geschlossen, sondern nur umgezogen.", "info"),
+        ("Urlaubslektüre", "Tipps für die Reise.", "info"),
+    ],
+)
+def test_announcement_kind_heuristic(title, body, kind):
+    a = parse_announcement(_notice(title, body))
+    assert a is not None and a.kind == kind
+
+
+def test_announcement_only_title_is_kept():
+    a = parse_announcement(_notice("Am 10.11. ist die Bibliothek geschlossen", ""))
+    assert a is not None and a.text == "" and a.kind == "closure"
+
+
+def test_announcement_with_nested_div_and_no_login_marker():
+    page = (
+        '<div id="veranstaltungshinweis" class="findus_veranstaltung_alt_1"><h2>Lesung</h2>'
+        '<div class="x"><p>Am Freitag um 15 Uhr.</p></div><p>Eintritt frei.</p></div><P>Rest der Seite'
+    )
+    a = parse_announcement(page)
+    assert a is not None and a.text == "Am Freitag um 15 Uhr.\n\nEintritt frei."
+
+
+def test_announcement_absent():
+    assert parse_announcement(LOGIN_PAGE) is None
+    assert parse_announcement(_notice("", "", "")) is None
+
+
+def test_announcement_text_is_capped():
+    a = parse_announcement(_notice("Lang", *["Absatz " * 40] * 30))
+    assert a is not None and len(a.text) == 2000 and a.text.endswith("…")
+    assert a.truncated
+    short = parse_announcement(_notice("Kurz", "text"))
+    assert short is not None and not short.truncated
+
+
+def test_announcement_title_capped_to_state_limit():
+    a = parse_announcement(_notice("x" * 400, "text"))
+    assert a is not None and len(a.title) == 255
+
+
+async def test_fetch_reads_notice_from_login_page():
+    opac = FakeOpac()
+    opac.login = LOGIN_PAGE + CLOSURE
+    account = await opac.client().fetch()
+    assert account.announcement is not None and account.announcement.kind == "closure"
+    assert account.announcement.images == [
+        "https://musterstadt.findus-internet-opac.de//kunden_templates/musterstadt/upload/x.jpg"
+    ]
+    assert account.announcement.url == (
+        "https://musterstadt.findus-internet-opac.de/cgi-bin/findus.fcgi.pl?customer=musterstadt"
+    )
+
+
+async def test_notice_images_resolved_filtered_and_capped():
+    imgs = "".join(f'<img src="/up/{i}.jpg">' for i in range(5)) + '<img src="javascript:x">'
+    opac = FakeOpac()
+    opac.login = LOGIN_PAGE + _notice("Bilder", imgs)
+    note = (await opac.client().fetch()).announcement
+    assert note is not None
+    assert note.images == [f"https://musterstadt.findus-internet-opac.de/up/{i}.jpg" for i in range(3)]
+    assert "jpg" not in note.text

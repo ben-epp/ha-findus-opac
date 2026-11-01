@@ -106,6 +106,9 @@
       },
       "card_valid_until": {
         "name": "Library card valid until"
+      },
+      "announcement": {
+        "name": "Library announcement"
       }
     },
     "binary_sensor": {

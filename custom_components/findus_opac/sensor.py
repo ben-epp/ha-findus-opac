@@ -82,6 +82,19 @@ def _renewable(c: FindusCoordinator, l: Loan) -> bool:
     return l.renewable
 
 
+def _announcement_attrs(c: FindusCoordinator) -> dict[str, Any]:
+    a = c.data.announcement
+    if a is None:
+        return {}
+    return {
+        "kind": a.kind,
+        "text": a.text,
+        "truncated": a.truncated,
+        "url": a.url,
+        "images": a.images,
+    }
+
+
 def _counter(key: str, pred: LoanFilter, **kwargs: Any) -> FindusSensorEntityDescription:
     return FindusSensorEntityDescription(
         key=key,
@@ -135,6 +148,12 @@ SENSORS: tuple[FindusSensorEntityDescription, ...] = (
             if c.data.card_valid_until
             else None
         },
+    ),
+    FindusSensorEntityDescription(
+        key="announcement",
+        translation_key="announcement",
+        value_fn=lambda c: c.data.announcement.title if c.data.announcement else None,
+        attrs_fn=_announcement_attrs,
     ),
 )
 
