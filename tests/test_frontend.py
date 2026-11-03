@@ -8,8 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from homeassistant.components.lovelace.const import LOVELACE_DATA
 
 from custom_components.findus_opac import _async_ensure_lovelace_resource, _async_register_card
+from custom_components.findus_opac.const import CARD_VERSION
 
-URL = "/findus_opac/findus-opac-card.js?v=0.5.0"
+URL = f"/findus_opac/findus-opac-card.js?v={CARD_VERSION}"
 
 COMPONENT = Path(__file__).parent.parent / "custom_components" / "findus_opac"
 
@@ -127,3 +128,9 @@ async def test_resource_with_real_lovelace(hass, hass_storage):
     await _async_ensure_lovelace_resource(hass, URL)
     items = hass.data[LOVELACE_DATA].resources.async_items()
     assert [(i["url"], i["type"]) for i in items] == [(URL, "module")]
+
+
+def test_card_version_matches_js():
+    """CARD_VERSION busts the browser cache; a stale one hides card changes."""
+    js = (COMPONENT / "frontend" / "findus-opac-card.js").read_text()
+    assert f'const CARD_VERSION = "{CARD_VERSION}";' in js
