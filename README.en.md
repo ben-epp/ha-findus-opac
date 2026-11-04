@@ -1,209 +1,236 @@
-# Findus Internet-OPAC for Home Assistant
+# Findus Library for Home Assistant
 
 [Deutsch](README.md) | **English**
 
-Shows the loans of a library card in Home Assistant – books, Tonies, CDs, films – with
-due dates, overdue items and a renew button. Works with every library that uses
-[Findus Internet-OPAC](https://www.findus-internet-opac.de/go) (230+, e.g.
-`alzey.findus-internet-opac.de`).
+![Findus Internet-OPAC for Home Assistant](https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/social-preview.png)
+
+Keep track of what you borrowed from your library – books, Tonies, CDs, films and games.
+Home Assistant shows what is due when, reminds you in time and can renew automatically.
 
 > Unofficial. This project is not affiliated with Findus or any library.
 
-## How it works
+## What you get
 
-- Findus has **no public API**. The integration logs in to the reader account like a browser
-  (form with card number and birth date/password) and parses the HTML page. If Findus changes
-  its page layout, the parser (`client.py`) needs an update.
-- Findus is a hosted mirror of the library's actual system (OCLC Bibliotheca or Winbiap).
-  The library uploads its data **several times a day**, so data in Home Assistant can be a few
-  hours old. Polling more often gains nothing.
-- Renewing is a **renewal request** ("Verlängerungsantrag") in Findus. The new due date may
-  only appear after the library's next sync. The integration therefore reports each item as
-  `renewed` (new date already visible), `requested` (request submitted, marked as
-  "Verlängerung beantragt" in the account) or `failed` (request not accepted) and checks again
-  after 30 minutes. Until the library syncs, the item stays listed with its old due date, is no
-  longer renewable and has `renew_requested: true`.
-- The new loan period counts **from the day of the request**, not from the old due date.
-  Renewing early wastes loan time – better shortly before the due date (auto-renew default:
-  2 days before).
-- Renewal only works when the library allows it – usually **from 14 days before the due date**,
-  not for reserved items and not after the maximum number of renewals. The reason is in the
-  item's `note` attribute.
-- Loan periods depend on the media type (Tonies and CDs are usually shorter than books).
-  Every item has its own due date; renewing and auto-renew handle each item on its own date.
+- **Dashboard overview:** a card with covers, due dates and renew buttons, coloured by
+  urgency.
+- **Reminders on your phone:** a daily message when something is due soon, due today or
+  overdue – with a **Renew** button right in the notification.
+- **Renew with one tap** – or fully automatically shortly before the due date.
+- **Reasons, not guesswork:** why an item cannot be renewed (e.g. "renewal limit reached" or
+  "reserved").
+- **Library announcements** such as holiday closures or events.
+- **Card expiry:** a heads-up 30 and 7 days before your library card expires.
+- **Several cards**, e.g. one per family member.
+
+## Does it work with my library?
+
+Yes, if your library's online catalogue runs on **Findus Internet-OPAC** – more than 200
+libraries in Germany use it. You can tell by the catalogue address:
+`https://<name>.findus-internet-opac.de`. All libraries are listed on the
+[Findus reference page](https://www.findus-internet-opac.de/referenzen).
+
+You also need:
+
+- Home Assistant **2025.6** or newer
+- your **library card number** and your **birth date or password** – the same as for the
+  library website login
 
 ## Installation
 
-### HACS (custom repository)
+### With HACS (recommended)
 
-1. Open HACS → menu (⋮) → **Custom repositories**.
-2. Add `https://github.com/ben-epp/ha-findus-opac`, category **Integration**.
-3. Download **Findus Internet-OPAC** and restart Home Assistant.
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ben-epp&repository=ha-findus-opac&category=integration)
 
-HACS only works with GitHub. If you develop elsewhere (e.g. Forgejo), a push mirror to GitHub is enough.
+Or by hand:
 
-### Manual
+1. In Home Assistant open **HACS** → menu (⋮) → **Custom repositories**.
+2. Enter `https://github.com/ben-epp/ha-findus-opac`, type **Integration**, add.
+3. Search for **Findus Internet-OPAC**, **Download**.
+4. **Restart** Home Assistant.
 
-Copy `custom_components/findus_opac` into Home Assistant's `config/custom_components/` and restart.
+HACS will then show you updates automatically.
+
+### Without HACS
+
+Copy the folder `custom_components/findus_opac` from the
+[latest release](https://github.com/ben-epp/ha-findus-opac/releases/latest) into
+`config/custom_components/` of your Home Assistant and restart. You then have to install
+updates yourself.
 
 ## Setup
 
-**Settings → Devices & services → Add integration → Findus Internet-OPAC**
+[![Add integration](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=findus_opac)
 
-| Field | Example | Note |
+Or: **Settings → Devices & services → Add integration → Findus Internet-OPAC**
+
+| Field | Example | What to enter |
 |---|---|---|
-| Account name | `Lena` | Free display name, e.g. one per family member |
-| Library subdomain | `alzey` | Part before `.findus-internet-opac.de`; a full URL works too |
-| Card number | `12345678` | Number next to the barcode on the card |
-| Birth date or password | `01.01.2015` | As on the library website |
+| Account name | `Lena` | A display name, e.g. whose card it is |
+| Library subdomain | `alzey` | The part before `.findus-internet-opac.de` – or just the full catalogue address |
+| Card number | `12345678` | The number on your library card |
+| Birth date or password | `DD.MM.YYYY` | Exactly as you log in on the library website |
 
-Several cards = several entries. If the library later rejects the credentials, Home Assistant
-asks for the new password.
+For each further card, simply add the integration again. If your password changes, Home
+Assistant asks for the new one by itself.
 
-### Options
+## Dashboard card
 
-| Option | Default | Meaning |
+The card ships with the integration – nothing extra to install. Edit dashboard →
+**Add card** → **"Findus Bibliothek"**. It finds your account by itself; everything else is
+set in the card editor.
+
+<p>
+  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-tonies.png" alt="Card grouped by media type, Tonies expanded" width="360">
+  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-books.png" alt="Card with books expanded, showing covers" width="360">
+</p>
+
+What the card shows:
+
+- cover, title and due date of every item – red when overdue, orange when due soon
+- "renewable" with a renew button per item, or the reason why not
+- a button to renew everything renewable and one to sync right away
+- your card's expiry and the library's current announcement (expandable)
+
+<details>
+<summary>Card options (YAML)</summary>
+
+```yaml
+type: custom:findus-opac-card
+entity: sensor.lena_loans
+title: Lena's library       # default: account name
+show_renew: true            # renew buttons
+show_covers: true           # cover images
+show_card_expiry: true      # library card expiry
+show_announcement: true     # library announcement
+max_items: 0                # show at most this many items; 0 = all
+warn_days: 3                # orange from this many days before the due date
+group_by: due               # due (by date) | category (by media type) | none
+max_height: 400             # list height in px, scrollable beyond; 0 = unlimited
+```
+
+</details>
+
+If the card looks unchanged after an update, reload the page without cache (Ctrl+Shift+R; in
+the app: Companion app settings → clear frontend cache).
+
+## Reminders on your phone
+
+**Settings → Devices & services → Findus Internet-OPAC → Configure**
+
+1. Under **Notify**, pick your phone (e.g. `mobile_app_my_phone` from the Home Assistant
+   app).
+2. Choose a **time** for the daily overview (default 08:00).
+3. Under **Notify about**, pick what you want to hear about.
+
+You get at most one message per day and card – and only when there is something new:
+
+| Occasion | When | How often |
 |---|---|---|
-| Update interval | 6 h | Hours between checks (1–24) |
-| Due soon window | 3 days | Items due within this many days |
-| Auto-renew | off | Automatically request renewal for renewable items that are due soon |
-| Auto-renew window | 2 days | Items due within this many days (0 = only on the due date) |
-| Auto-renew only | all | Restrict to media types, e.g. only Tonies and CDs |
-| Notify | – | Notify services, e.g. `mobile_app_my_phone`; empty = no notifications |
-| Notification time | 08:00 | When the daily due-date digest is sent |
-| Notify about | all | Due soon, due today, overdue, renewal, library card expiry |
+| Due soon | within the next days (default 3) | once per item |
+| Due today | on the due date | once per item |
+| Overdue | after the due date | daily until returned |
+| Renewal | right after every renewal | every time |
+| Card expires | 30 and 7 days before | once each |
 
-### Auto-renew
+It looks like this:
 
-When enabled, every update checks which items are renewable and due within the window, and
-submits the renewal request for exactly those. Each item is requested **once per due date** –
-a request the library hasn't processed yet is not resent on every poll. Once the due date
-moves, the item is eligible again next time.
+```text
+Library: Lena
+Overdue for 2 days: Whales & Dolphins (renewal limit reached)
+Due today: The Little Dragon (renewable)
+Due Sun 8 Nov: Sing-along Songs (renewable)
+```
 
-Notes:
+In the Home Assistant app (Android and iOS) the message has a **Renew** button as soon as
+something is renewable. Other services such as e-mail or Telegram get the text only.
 
-- The library only opens renewal shortly before the due date (often **14 days** before).
-  A window larger than that gains nothing.
-- Tonies/CDs have shorter loan periods than books, so they are usually renewed at different
-  times – that happens automatically, item by item.
-- Auto-renew errors never fail the update; they are logged as warnings. Every attempt fires
-  `findus_opac_renewal` with `trigger: auto` – handy for a notification.
+## Automatic renewal
+
+Under **Configure** you can switch on **Auto-renew**. The integration then requests
+the renewal by itself when an item is due soon and renewable – once per item.
+
+- **Auto-renew window** (default 2 days): renew this many days before the due date.
+- **Auto-renew only**: limit it to certain media types, e.g. only Tonies and CDs. Empty = all.
+
+The same dialog also has the **Update interval** (default every 6 hours) and the **Due soon
+window** (default 3 days).
+
+Tip: the new loan period usually starts **on the day you renew**, not on the old due date.
+Renewing early wastes loan time – shortly before is better.
+
+## Good to know
+
+- **The data is a few hours old.** Findus mirrors the library's own system, which uploads
+  several times a day. Something you just returned at the desk may stay on the list for a
+  while. Polling more often doesn't help.
+- **Renewing is a request.** The library accepts it right away, but the new due date often
+  appears only after its next sync. Until then the item shows "renewal requested".
+- **Not everything can be renewed.** The library decides: usually only from 14 days before
+  the due date, not when reserved, and only 2–3 times per item. The card shows the reason
+  right at the item.
+- **Library announcements** are free text. Whether one is about a closure is guessed from
+  words like "geschlossen" (closed) or "Urlaub" (holiday) – right most of the time, not
+  always. Long announcements are shortened; the link leads to the full text.
+- **Cover images** are loaded by your browser directly from Findus; your credentials are not
+  sent. If you prefer not to, switch covers off in the card.
+- **Languages:** German and English, following your Home Assistant language. Titles and notes
+  from the library stay as the library wrote them.
 
 ## Entities
 
-One device per account with these entities (entity IDs start with the account name):
+Each card gets a device with these entities. Entity IDs start with the account name, e.g.
+`sensor.lena_loans` – the exact IDs are on the device page.
 
-| Entity | Type | Content |
-|---|---|---|
-| Loans | Sensor | Number of loans; attribute `items` with all items |
-| Books, Tonies, CDs, Videos, Games | Sensor | Count per category (incl. `items`) |
-| Next due date | Sensor (date) | Earliest due date |
-| Days until next due | Sensor | Days until the next due date (negative = overdue) |
-| Due today / Due soon / Overdue | Sensor | Number of items |
-| Renewable | Sensor | Number of items renewable right now |
-| Library card valid until | Sensor | Expiry date from the account banner ("Ihr Ausweis ist gültig bis …"); attribute `days_left` |
-| Library announcement | Sensor | The library's free-text notice (e.g. holiday closure, event); state = title, attributes `text` (capped at 2000 characters, then `truncated: true` and `url` to the website), `kind` (`closure` if it matches keywords such as "geschlossen", "Urlaub", "Ferien", else `info`), `images`. The card shows it as an expandable banner (`show_announcement`) |
-| Library card expires soon | Binary sensor | On 30 days before the card expires; unknown if the page shows no expiry |
-| Overdue items | Binary sensor | on when anything is overdue |
-| Renewal possible | Binary sensor | on when at least one item can be renewed |
-| Renew all | Button | Submits the renewal request for all renewable items |
-| Sync now | Button (diagnostic) | Re-reads the reader account immediately |
+| Entity | Content |
+|---|---|
+| Loans | Number of all loans, with every item in the attribute `items` |
+| Books, Tonies, CDs, Videos, Games | Count per media type (videos and games are hidden at first) |
+| Next due date / Days until next due | Earliest due date and the days until then (negative = overdue) |
+| Due today / Due soon / Overdue / Renewable | Number of such items |
+| Library card valid until | Expiry date of your library card |
+| Library announcement | Title of the current announcement, empty if none |
+| Overdue items / Renewal possible / Library card expires soon | On/off – handy for automations |
+| Renew all | Button: renew all renewable items |
+| Sync now | Button: read the account again right away |
 
-"Sync now" queries Findus right away. Findus itself only has what the library last uploaded,
-so a Tonie just returned at the desk may stay in the list for a few more hours.
+<details>
+<summary>Attributes for your own cards and templates</summary>
 
-Each entry in `items` has: `mednr`, `title`, `author`, `media_type`, `category`
-(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `renew_requested`, `note` (Findus's reason when not renewable), `renew_block` (`limit` = renewal limit reached, `reserved`, `too_early`, `other`; empty if renewable or requested), `cover` (cover image URL or empty).
-`cover` is the cover image Findus itself shows (Tonies via the mycover service by EAN, books via
-the book trade cover service by ISBN).
-The media type comes from the library (e.g. "Kinder- und Jugendliteratur") and is mapped to a
-category by keyword; anything unknown counts as a book.
+Each item in `items`:
 
-## Service and event
+| Attribute | Meaning |
+|---|---|
+| `title`, `author`, `media_type` | Title, author, media type as named by the library |
+| `category` | `book`, `tonie`, `cd`, `video` or `game` |
+| `due`, `days_left` | Due date and days until then |
+| `renewable`, `renew_requested` | renewable / renewal requested |
+| `renew_block` | Why not renewable: `limit` (limit reached), `reserved`, `too_early`, `other` |
+| `note` | The library's note, verbatim |
+| `cover`, `series`, `mednr` | Cover URL, series, item number |
 
-### `findus_opac.renew`
+Library announcement: `text`, `kind` (`closure` or `info`), `truncated`, `url`, `images`.
 
-```yaml
-action: findus_opac.renew
-data:
-  config_entry_id: 0123456789abcdef0123456789abcdef
-  media_ids:            # optional; empty = everything renewable
-    - "0900000101"
-```
+</details>
 
-Renew only certain media types (`book`, `tonie`, `cd`, `video`, `game`):
+<details>
+<summary>For automations: action and event</summary>
+
+Renew via action – without options everything renewable, otherwise only certain items or
+media types:
 
 ```yaml
 action: findus_opac.renew
 data:
   config_entry_id: 0123456789abcdef0123456789abcdef
-  categories:
-    - tonie
-    - cd
+  categories: [tonie, cd]    # optional
+  media_ids: ["0900000101"]  # optional
 ```
 
-If both `media_ids` and `categories` are given, both apply. Non-renewable items are always
-skipped. With `response_variable` the service returns the results (same `items` as the event).
+After every renewal (including automatic ones) the event `findus_opac_renewal` fires with
+`account_name`, `trigger` (`manual` or `auto`) and per item `title`, `old_due`, `new_due` and
+`status` (`renewed`, `requested` or `failed`).
 
-### Event `findus_opac_renewal`
-
-Fired after every renewal attempt – from the button, service or card (`trigger: manual`)
-or from auto-renew (`trigger: auto`):
-
-```json
-{
-  "config_entry_id": "0123456789abcdef0123456789abcdef",
-  "account_name": "Lena",
-  "trigger": "auto",
-  "items": [
-    {"mednr": "0900000101", "title": "Der kleine Drache", "old_due": "2026-11-06",
-     "new_due": "2026-12-04", "status": "renewed"},
-    {"mednr": "0900000102", "title": "Lieder zum Mitsingen", "old_due": "2026-11-08",
-     "new_due": "2026-11-08", "status": "requested"}
-  ]
-}
-```
-
-## Notifications
-
-The integration sends notifications itself – no automation needed. Enable them under
-**Settings → Devices & services → Findus → Configure**: pick one or more notify services
-under "Notify" (e.g. the companion app's `mobile_app_my_phone`), a time and the events.
-
-Every day at that time the integration syncs the account and sends **one** message per
-account – only when there is something new. If Home Assistant was off or restarting at that
-time, the digest is sent right after startup (once per day):
-
-| Event | When | How often |
-|---|---|---|
-| Due soon | within the "due soon" window (default 3 days) | once per item and due date |
-| Due today | on the due date | once per item and due date |
-| Overdue | after the due date | daily until returned |
-| Renewal | right after a renewal (also automatic ones) | every time |
-| Library card expires | 30 and 7 days before the card expires | once each |
-
-Example:
-
-```text
-Library: Kids
-Overdue for 2 days: Whales & Dolphins
-Due today: The little dragon (renewable)
-Due Sun 8 Nov: Sing-along songs (renewable)
-```
-
-A renewed item with a new due date is reported again for the new date. What was already
-sent is remembered across restarts.
-
-**"Renew" button in the notification:** companion-app targets (`mobile_app_…`, Android and
-iOS) get a "Renew" button when the message lists renewable items. Tapping it requests renewal
-for everything currently renewable; the result arrives as a separate message. Other notify
-services (email, Telegram, …) get the text only.
-
-## Automations
-
-Due dates and renewals no longer need an automation: see [Notifications](#notifications) and
-[Auto-renew](#auto-renew). For your own flows all sensors and the `findus_opac_renewal` event
-are available, e.g. a spoken reminder the evening before:
+Example – spoken reminder the evening before:
 
 ```yaml
 automation:
@@ -222,88 +249,26 @@ automation:
         data:
           media_player_entity_id: media_player.kitchen
           message: >
-            {{ states('sensor.lena_due_soon') }} library items are due tomorrow.
+            {{ states('sensor.lena_due_soon') }} items are due at the library tomorrow.
 ```
 
-Entity IDs depend on the account name and system language – check the device page.
+</details>
 
-## Dashboard card
+## Problems?
 
-The integration ships its own card and registers it itself – no resource to add, no extra
-HACS frontend package. After a restart it appears in the card picker as **"Findus Bibliothek"**
-and picks the loans sensor automatically.
-
-- Cover image per item (falls back to the media type icon)
-- Due date with "today", "in 2 days"; red when overdue, orange when due soon
-- "renewable" badge and a renew icon **per item**
-- "Renew N" button for all renewable items
-- Sync icon in the header ("Sync now")
-
-```yaml
-type: custom:findus-opac-card
-entity: sensor.lena_loans
-title: Lena's library    # optional, default: account name
-show_renew: true         # show renew buttons
-show_covers: true        # show cover images
-max_items: 0             # 0 = all
-warn_days: 3             # orange from this many days before due
-group_by: due            # due | category | none – collapsible groups
-max_height: 400          # list height in px, scrolls beyond; 0 = no limit
-```
-
-Covers are loaded by the viewer's browser directly from Findus' cover servers
-(`mycover.findus-internet-opac.de`, `covers-buchhandel-de.findus-internet-opac.de`); no
-credentials are sent. To avoid that: `show_covers: false`.
-
-After updating the integration you may need to clear the browser cache (Ctrl+Shift+R).
-
-## Loan list as a Markdown card
-
-Alternatively, without the custom card, using built-in cards only:
-
-```yaml
-type: markdown
-title: Library
-content: >
-  {% set items = state_attr('sensor.lena_loans', 'items') or [] %}
-  {% if not items %}No loans. 🎉{% endif %}
-  {% for i in items %}
-  {% if i.days_left < 0 %}<font color="red">**{{ i.title }}**</font>
-  {% else %}**{{ i.title }}**{% endif %} · {{ i.media_type }}<br>
-  due {{ as_timestamp(i.due) | timestamp_custom('%d.%m.%Y') }}
-  ({% if i.days_left < 0 %}<font color="red">{{ -i.days_left }} days overdue</font>
-  {% elif i.days_left == 0 %}today{% else %}in {{ i.days_left }} days{% endif %})
-  {% if i.renewable %} · 🔄 renewable{% elif i.note %} · <small>{{ i.note }}</small>{% endif %}
-
-  {% endfor %}
-```
-
-## Icon
-
-The fox icon is an original drawing (`images/fox.svg`) and **not** the Findus logo. Recent
-Home Assistant versions pick it up automatically (folder `brand/`).
-
-## Languages
-
-German and English. Another language needs two files:
-
-1. `custom_components/findus_opac/translations/<lang>.json` – a translated copy of `en.json`:
-   setup, options, entities, errors, service **and** notifications (keys `notify_*` under
-   `exceptions`). Keep the `{…}` placeholders unchanged. Date formats (`notify_date_short`,
-   `notify_date_long`) use `%a` weekday, `%b` month name, `%d`/`%m` day/month, `%D`/`%M`
-   two digits, `%Y` year.
-2. `frontend/findus-opac-card.js` – one block in `TEXT` for the card.
-
-Missing texts fall back to English. Titles, media types and notes from the library come from
-Findus and stay German.
+- **"Login failed":** check your credentials on the library website – they must work there
+  the same way.
+- **Card missing or outdated:** restart Home Assistant and reload the page without cache
+  (see [Dashboard card](#dashboard-card)).
+- **Report a bug:** on the device page choose **Download diagnostics** (credentials are
+  redacted) and open an [issue](https://github.com/ben-epp/ha-findus-opac/issues) with a short
+  description.
 
 ## Privacy
 
-- Card number and birth date/password are stored in Home Assistant's config entry
-  (`.storage/core.config_entries`), like any other integration's credentials.
-- Only the Findus servers of the configured library are contacted.
-- The diagnostics download (device → Download diagnostics) redacts credentials and form fields.
+- Card number and birth date/password stay in your Home Assistant.
+- Only your library's Findus server is contacted, nothing else.
 
 ## License
 
-MIT – see [LICENSE](LICENSE).
+MIT – see [LICENSE](LICENSE). The fox icon is an original drawing, not the Findus logo.

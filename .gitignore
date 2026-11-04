@@ -13,3 +13,6 @@ venv/
 # Local account dumps (real personal data) - never commit
 findus-probe/
 *.local.html
+
+# Raw screenshots (personal data); only cropped/redacted copies are committed
+images/WhatsApp*
