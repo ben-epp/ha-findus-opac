@@ -79,10 +79,16 @@ The card ships with the integration – nothing extra to install. Edit dashboard
 **Add card** → **"Findus Bibliothek"**. It finds your account by itself; everything else is
 set in the card editor.
 
-<p>
-  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-tonies.png" alt="Card grouped by media type, Tonies expanded" width="360">
-  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-books.png" alt="Card with books expanded, showing covers" width="360">
-</p>
+<table>
+  <tr>
+    <td><img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-overview.png" alt="Card grouped by media type: announcement, renewable Tonies, requested renewal" width="360"></td>
+    <td><img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-by-date.png" alt="Card grouped by due date" width="360"></td>
+  </tr>
+  <tr>
+    <td align="center">Grouped by media type</td>
+    <td align="center">Grouped by due date</td>
+  </tr>
+</table>
 
 What the card shows:
 
