@@ -1,220 +1,242 @@
-# Findus Internet-OPAC für Home Assistant
+# Findus Bibliothek für Home Assistant
 
 **Deutsch** | [English](README.en.md)
 
-Zeigt die Ausleihen eines Bibliotheksausweises in Home Assistant an – Bücher, Tonies,
-CDs, Filme – mit Rückgabefristen, überfälligen Medien und einem Button zum Verlängern.
-Funktioniert mit allen Büchereien, die [Findus Internet-OPAC](https://www.findus-internet-opac.de/go)
-nutzen (über 230, z. B. `alzey.findus-internet-opac.de`).
+![Findus Internet-OPAC für Home Assistant](https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/social-preview.png)
 
-> Kein offizielles Produkt. Dieses Projekt steht in keiner Verbindung zu Findus oder den Büchereien.
+Behalte die Ausleihen deiner Bücherei im Blick – Bücher, Tonies, CDs, Filme und Spiele.
+Home Assistant zeigt dir, was wann zurück muss, erinnert dich rechtzeitig und verlängert auf
+Wunsch automatisch.
 
-## Wie es funktioniert
+> Inoffiziell. Dieses Projekt steht in keiner Verbindung zu Findus oder den Büchereien.
 
-- Findus hat **keine öffentliche API**. Die Integration meldet sich wie ein Browser im
-  Leserkonto an (Formular mit Ausweisnummer und Geburtsdatum/Passwort) und liest die
-  HTML-Seite aus. Ändert Findus das Seitenlayout, muss der Parser (`client.py`) angepasst werden.
-- Findus ist ein gehosteter Spiegel des eigentlichen Büchereiprogramms (Bibliotheca von OCLC
-  oder Winbiap). Die Bücherei lädt ihre Daten **mehrmals täglich** hoch – die Daten in
-  Home Assistant können also einige Stunden alt sein. Häufigeres Abfragen bringt nichts.
-- Verlängern ist bei Findus ein **Verlängerungsantrag**. Die neue Leihfrist erscheint
-  eventuell erst nach dem nächsten Abgleich der Bücherei. Die Integration meldet deshalb
-  pro Medium `renewed` (neue Frist schon sichtbar), `requested` (Antrag gestellt, im Konto als
-  „Verlängerung beantragt“ markiert) oder `failed` (Antrag nicht angenommen) und prüft nach
-  30 Minuten erneut. Bis zum Abgleich bleibt das Medium mit alter Frist gelistet, ist nicht
-  mehr verlängerbar und hat `renew_requested: true`.
-- Die neue Leihfrist zählt **ab dem Tag des Antrags**, nicht ab der alten Frist. Früh
-  verlängern verschenkt also Leihzeit – lieber kurz vor Fristende (Standard beim automatischen
-  Verlängern: 2 Tage vorher).
-- Verlängern ist nur möglich, wenn die Bücherei es zulässt – typischerweise erst
-  **14 Tage vor der Rückgabefrist**, nicht bei vorbestellten Medien und nicht nach der
-  maximalen Anzahl an Verlängerungen. Der Grund steht im Attribut `note` des Mediums.
-- Die Leihfrist hängt von der Medienart ab (Tonies und CDs meist kürzer als Bücher).
-  Jedes Medium hat seine eigene Frist; Verlängern und Auto-Verlängern behandeln jedes
-  Medium einzeln nach seinem eigenen Rückgabedatum.
+## Was du bekommst
+
+- **Übersicht im Dashboard:** eigene Karte mit Coverbildern, Rückgabedaten und
+  Verlängern-Knöpfen, farbig nach Dringlichkeit.
+- **Erinnerungen aufs Handy:** tägliche Nachricht, wenn etwas bald oder heute fällig oder
+  überfällig ist – mit Knopf „Verlängern“ direkt in der Nachricht.
+- **Verlängern mit einem Tipp** – oder ganz automatisch kurz vor der Rückgabe.
+- **Gründe statt Rätsel:** warum etwas nicht verlängert werden kann (z. B. „Verlängerungen
+  ausgeschöpft“ oder „vorbestellt“).
+- **Mitteilungen der Bücherei** wie Urlaubsschließungen oder Veranstaltungen.
+- **Ausweis-Ablauf:** Hinweis 30 und 7 Tage, bevor der Bibliotheksausweis abläuft.
+- **Mehrere Ausweise**, z. B. einer pro Familienmitglied.
+
+## Funktioniert das mit meiner Bücherei?
+
+Ja, wenn deine Bücherei ihren Online-Katalog über **Findus Internet-OPAC** anbietet – über
+200 Büchereien in Deutschland tun das. Du erkennst es an der Adresse des Katalogs:
+`https://<name>.findus-internet-opac.de`. Die Liste aller Büchereien steht auf der
+[Referenzseite von Findus](https://www.findus-internet-opac.de/referenzen).
+
+Du brauchst außerdem:
+
+- Home Assistant **2025.6** oder neuer
+- deine **Ausweisnummer** und dein **Geburtsdatum oder Passwort** – dieselben Daten wie
+  beim Login auf der Webseite der Bücherei
 
 ## Installation
 
-### HACS (benutzerdefiniertes Repository)
+### Mit HACS (empfohlen)
 
-1. HACS öffnen → Menü (⋮) → **Benutzerdefinierte Repositories**.
-2. `https://github.com/ben-epp/ha-findus-opac` eintragen, Kategorie **Integration**.
-3. **Findus Internet-OPAC** herunterladen und Home Assistant neu starten.
+[![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ben-epp&repository=ha-findus-opac&category=integration)
 
-HACS funktioniert nur mit GitHub. Wird das Projekt woanders entwickelt (z. B. Forgejo),
-reicht ein Push-Mirror nach GitHub.
+Oder von Hand:
 
-### Manuell
+1. In Home Assistant **HACS** öffnen → Menü (⋮) → **Benutzerdefinierte Repositories**.
+2. `https://github.com/ben-epp/ha-findus-opac` eintragen, Typ **Integration**, hinzufügen.
+3. **Findus Internet-OPAC** suchen, **Herunterladen**.
+4. Home Assistant **neu starten**.
 
-`custom_components/findus_opac` in den Ordner `config/custom_components/` von Home Assistant
-kopieren und neu starten.
+Updates zeigt HACS dir danach automatisch an.
+
+### Ohne HACS
+
+Den Ordner `custom_components/findus_opac` aus dem
+[neuesten Release](https://github.com/ben-epp/ha-findus-opac/releases/latest) in den Ordner
+`config/custom_components/` deiner Home-Assistant-Installation kopieren und neu starten.
+Updates musst du dann selbst einspielen.
 
 ## Einrichtung
 
-**Einstellungen → Geräte & Dienste → Integration hinzufügen → Findus Internet-OPAC**
+[![Integration hinzufügen](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=findus_opac)
 
-| Feld | Beispiel | Hinweis |
+Oder: **Einstellungen → Geräte & Dienste → Integration hinzufügen → Findus Internet-OPAC**
+
+| Feld | Beispiel | Was eintragen |
 |---|---|---|
-| Kontoname | `Lena` | Freier Anzeigename, z. B. pro Familienmitglied |
-| Bücherei-Subdomain | `alzey` | Teil vor `.findus-internet-opac.de`; eine komplette URL geht auch |
-| Ausweisnummer | `12345678` | Nummer neben dem Barcode auf dem Ausweis |
-| Geburtsdatum oder Passwort | `01.01.2015` | Wie auf der Webseite der Bücherei |
+| Kontoname | `Lena` | Ein Name für die Anzeige, z. B. wem der Ausweis gehört |
+| Bücherei-Subdomain | `alzey` | Der Teil vor `.findus-internet-opac.de` – oder einfach die ganze Adresse des Katalogs |
+| Ausweisnummer | `12345678` | Die Nummer auf dem Bibliotheksausweis |
+| Geburtsdatum oder Passwort | `TT.MM.JJJJ` | Genau so, wie du dich auf der Webseite der Bücherei anmeldest |
 
-Mehrere Ausweise = mehrere Einträge. Lehnt die Bücherei die Zugangsdaten später ab,
-fragt Home Assistant automatisch nach dem neuen Passwort.
+Für jeden weiteren Ausweis die Integration einfach noch einmal hinzufügen. Ändert sich das
+Passwort, fragt Home Assistant von selbst nach dem neuen.
 
-### Optionen
+## Dashboard-Karte
 
-| Option | Standard | Bedeutung |
-|---|---|---|
-| Aktualisierungsintervall | 6 h | Stunden zwischen zwei Abfragen (1–24) |
-| Zeitraum für „bald fällig“ | 3 Tage | Medien, die innerhalb dieser Tage fällig sind |
-| Automatisch verlängern | aus | Verlängerbare Medien automatisch beantragen, wenn sie bald fällig sind |
-| Zeitraum für automatisches Verlängern | 2 Tage | Medien, die innerhalb dieser Tage fällig sind (0 = erst am Rückgabetag) |
-| Nur automatisch verlängern | alle | Auf Medienarten beschränken, z. B. nur Tonies und CDs |
-| Benachrichtigen | – | Notify-Dienste, z. B. `mobile_app_mein_handy`; leer = keine Benachrichtigungen |
-| Uhrzeit der Benachrichtigung | 08:00 | Wann die tägliche Fristen-Übersicht kommt |
-| Benachrichtigen bei | alle | Bald fällig, heute fällig, überfällig, Verlängerung, Ausweis läuft ab |
+Die Karte wird mit der Integration mitgeliefert – nichts extra installieren. Dashboard
+bearbeiten → **Karte hinzufügen** → **„Findus Bibliothek“**. Sie findet dein Konto von
+selbst; alles Weitere stellst du direkt im Karten-Editor ein.
 
-### Automatisch verlängern
+<p>
+  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-tonies.png" alt="Karte nach Medienart gruppiert, Tonies aufgeklappt" width="360">
+  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-books.png" alt="Karte mit aufgeklappten Büchern und Coverbildern" width="360">
+</p>
 
-Ist die Option aktiv, prüft die Integration bei jeder Aktualisierung, welche Medien
-verlängerbar sind und innerhalb des eingestellten Zeitraums fällig werden, und stellt für
-genau diese den Verlängerungsantrag. Pro Medium und Rückgabedatum wird nur **einmal**
-beantragt – ein noch nicht verarbeiteter Antrag wird nicht bei jeder Abfrage erneut gestellt.
-Ändert sich die Frist (verlängert), beginnt das Spiel beim nächsten Mal von vorn.
+Was die Karte zeigt:
 
-Hinweise:
+- Cover, Titel und Rückgabedatum jedes Mediums – rot bei überfälligen, orange bei bald
+  fälligen Medien
+- „verlängerbar“ mit Verlängern-Knopf pro Medium, oder den Grund, warum nicht
+- einen Knopf zum Verlängern aller verlängerbaren Medien und einen zum sofortigen Abgleich
+- die Gültigkeit des Ausweises und die aktuelle Mitteilung der Bücherei (aufklappbar)
 
-- Die Bücherei öffnet die Verlängerung erst kurz vor Fristende (oft **14 Tage**
-  vorher). Ein Zeitraum größer als dieses Fenster bringt nichts.
-- Weil Tonies/CDs kürzere Leihfristen als Bücher haben, werden sie meist zu anderen
-  Zeitpunkten verlängert – das passiert automatisch, jedes Medium für sich.
-- Fehler beim automatischen Verlängern brechen die Aktualisierung nicht ab, sie landen
-  als Warnung im Log. Jeder Versuch löst das Ereignis `findus_opac_renewal` mit
-  `trigger: auto` aus – ideal für eine Benachrichtigung.
-
-## Entitäten
-
-Pro Konto ein Gerät mit diesen Entitäten (Entity-IDs beginnen mit dem Kontonamen):
-
-| Entität | Typ | Inhalt |
-|---|---|---|
-| Ausleihen | Sensor | Anzahl aller Ausleihen; Attribut `items` mit allen Medien |
-| Bücher, Tonies, CDs, Filme, Spiele | Sensor | Anzahl je Medienart (inkl. `items`) |
-| Nächste Rückgabe | Sensor (Datum) | Frühestes Rückgabedatum |
-| Tage bis zur Rückgabe | Sensor | Tage bis zur nächsten Rückgabe (negativ = überfällig) |
-| Heute fällig / Bald fällig / Überfällig | Sensor | Anzahl Medien |
-| Verlängerbar | Sensor | Anzahl aktuell verlängerbarer Medien |
-| Ausweis gültig bis | Sensor | Ablaufdatum aus dem Hinweis im Leserkonto („Ihr Ausweis ist gültig bis …“); Attribut `days_left` |
-| Mitteilung der Bibliothek | Sensor | Freitext-Hinweis der Bücherei (z. B. Urlaub, Veranstaltung); Zustand = Titel, Attribute `text` (auf 2000 Zeichen gekürzt, dann `truncated: true` und `url` zur Webseite), `kind` (`closure` bei Schlüsselwörtern wie „geschlossen“, „Urlaub“, „Ferien“, sonst `info`), `images`. Die Karte zeigt ihn als aufklappbaren Banner (`show_announcement`) |
-| Ausweis läuft bald ab | Binärsensor | An ab 30 Tagen vor Ablauf; unbekannt, wenn die Seite kein Datum zeigt |
-| Überfällige Medien | Binärsensor | an, wenn etwas überfällig ist |
-| Verlängerung möglich | Binärsensor | an, wenn mindestens ein Medium verlängert werden kann |
-| Alle verlängern | Button | Stellt den Verlängerungsantrag für alle verlängerbaren Medien |
-| Jetzt abgleichen | Button (Diagnose) | Liest das Leserkonto sofort neu ein |
-
-„Jetzt abgleichen“ fragt Findus sofort ab. Findus selbst hat aber nur den Stand, den die
-Bücherei zuletzt hochgeladen hat – eine gerade am Tresen zurückgegebene Tonie-Box kann
-also noch ein paar Stunden in der Liste stehen.
-
-Jedes Element in `items` hat: `mednr`, `title`, `author`, `media_type`, `category`
-(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `renew_requested`, `note` (Grund der Bücherei, wenn nicht verlängerbar), `renew_block` (`limit` = Verlängerungen ausgeschöpft, `reserved` = vorbestellt, `too_early`, `other`; leer, wenn verlängerbar oder beantragt), `cover` (Cover-URL oder leer).
-`cover` ist das Coverbild, das Findus selbst anzeigt (Tonies über den mycover-Dienst per EAN,
-Bücher über den Buchhandels-Coverdienst per ISBN).
-Die Medienart kommt von der Bücherei (z. B. „Kinder- und Jugendliteratur“) und wird
-per Stichwort einer Kategorie zugeordnet; alles Unbekannte zählt als Buch.
-
-## Dienst und Ereignis
-
-### `findus_opac.renew`
+<details>
+<summary>Einstellungen der Karte (YAML)</summary>
 
 ```yaml
-action: findus_opac.renew
-data:
-  config_entry_id: 0123456789abcdef0123456789abcdef
-  media_ids:            # optional; leer = alles Verlängerbare
-    - "0900000101"
+type: custom:findus-opac-card
+entity: sensor.lena_ausleihen
+title: Lenas Bücherei       # Standard: Kontoname
+show_renew: true            # Verlängern-Knöpfe
+show_covers: true           # Coverbilder
+show_card_expiry: true      # Gültigkeit des Ausweises
+show_announcement: true     # Mitteilung der Bücherei
+max_items: 0                # höchstens so viele Medien; 0 = alle
+warn_days: 3                # orange ab so vielen Tagen vor der Rückgabe
+group_by: due               # due (nach Datum) | category (nach Medienart) | none
+max_height: 400             # Höhe der Liste in px, darüber scrollbar; 0 = unbegrenzt
 ```
 
-Nur bestimmte Medienarten verlängern (`book`, `tonie`, `cd`, `video`, `game`):
+</details>
 
-```yaml
-action: findus_opac.renew
-data:
-  config_entry_id: 0123456789abcdef0123456789abcdef
-  categories:
-    - tonie
-    - cd
-```
+Siehst du nach einem Update keine Änderung an der Karte, lade die Seite einmal ohne Cache
+neu (Strg+Umschalt+R, in der App: Einstellungen der Companion-App → Frontend-Cache leeren).
 
-Werden `media_ids` und `categories` zusammen angegeben, gilt beides. Nicht verlängerbare
-Medien werden immer übersprungen. Mit `response_variable` liefert der Dienst die Ergebnisse
-zurück (gleiche `items` wie im Ereignis).
+## Erinnerungen aufs Handy
 
-### Ereignis `findus_opac_renewal`
+**Einstellungen → Geräte & Dienste → Findus Internet-OPAC → Konfigurieren**
 
-Wird nach jedem Verlängerungsversuch ausgelöst – über Button, Dienst, Karte
-(`trigger: manual`) oder das automatische Verlängern (`trigger: auto`):
+1. Bei **Benachrichtigen** dein Handy auswählen (z. B. `mobile_app_mein_handy` aus der
+   Home-Assistant-App).
+2. Eine **Uhrzeit** für die tägliche Übersicht wählen (Standard 08:00).
+3. Bei **Benachrichtigen bei** auswählen, worüber du informiert werden willst.
 
-```json
-{
-  "config_entry_id": "0123456789abcdef0123456789abcdef",
-  "account_name": "Lena",
-  "trigger": "auto",
-  "items": [
-    {"mednr": "0900000101", "title": "Der kleine Drache", "old_due": "2026-11-06",
-     "new_due": "2026-12-04", "status": "renewed"},
-    {"mednr": "0900000102", "title": "Lieder zum Mitsingen", "old_due": "2026-11-08",
-     "new_due": "2026-11-08", "status": "requested"}
-  ]
-}
-```
-
-## Benachrichtigungen
-
-Die Integration benachrichtigt selbst – ohne eigene Automation. Einschalten unter
-**Einstellungen → Geräte & Dienste → Findus → Konfigurieren**: bei „Benachrichtigen“ einen
-oder mehrere Notify-Dienste wählen (z. B. `mobile_app_mein_handy` der Companion-App), eine
-Uhrzeit und die gewünschten Anlässe.
-
-Jeden Tag zur eingestellten Uhrzeit gleicht die Integration das Konto ab und schickt **eine**
-Nachricht pro Konto – nur wenn es etwas Neues gibt. War Home Assistant zur Uhrzeit aus oder
-im Neustart, kommt die Übersicht gleich nach dem Start nach (einmal pro Tag):
+Du bekommst dann höchstens eine Nachricht pro Tag und Ausweis – und nur, wenn es etwas Neues
+gibt:
 
 | Anlass | Wann | Wie oft |
 |---|---|---|
-| Bald fällig | innerhalb des Zeitraums „bald fällig“ (Standard 3 Tage) | einmal je Medium und Rückgabedatum |
-| Heute fällig | am Rückgabetag | einmal je Medium und Rückgabedatum |
-| Überfällig | nach dem Rückgabetag | täglich, bis das Medium zurück ist |
-| Verlängerung | sofort nach einer (auch automatischen) Verlängerung | jedes Mal |
-| Ausweis läuft ab | 30 und 7 Tage vor Ablauf des Ausweises | je einmal |
+| Bald fällig | innerhalb der nächsten Tage (Standard 3) | einmal pro Medium |
+| Heute fällig | am Rückgabetag | einmal pro Medium |
+| Überfällig | nach dem Rückgabetag | täglich, bis es zurück ist |
+| Verlängerung | direkt nach jeder Verlängerung | jedes Mal |
+| Ausweis läuft ab | 30 und 7 Tage vorher | je einmal |
 
-Beispiel:
+So sieht das aus:
 
 ```text
-Bücherei: Kinder
-Überfällig seit 2 Tagen: Wieso? Weshalb? Warum? – Wale & Delfine
+Bücherei: Lena
+Überfällig seit 2 Tagen: Wale & Delfine (Verlängerungen ausgeschöpft)
 Heute fällig: Der kleine Drache (verlängerbar)
 Fällig am So., 8.11.: Lieder zum Mitsingen (verlängerbar)
 ```
 
-Wird ein Medium verlängert und bekommt dadurch ein neues Rückgabedatum, wird es zum neuen
-Datum wieder gemeldet. Was schon gemeldet wurde, merkt sich die Integration auch über
-Neustarts hinweg.
+In der Home-Assistant-App (Android und iOS) hat die Nachricht einen Knopf **„Verlängern“**,
+sobald etwas verlängerbar ist. Andere Dienste wie E-Mail oder Telegram bekommen nur den Text.
 
-**Knopf „Verlängern“ in der Benachrichtigung:** an Companion-App-Geräte
-(`mobile_app_…`, Android und iOS) kommt die Nachricht mit einem Knopf „Verlängern“, wenn
-darin verlängerbare Medien stehen. Ein Tipp darauf beantragt die Verlängerung für alle
-gerade verlängerbaren Medien; das Ergebnis kommt als eigene Nachricht. Andere Notify-Dienste
-(E-Mail, Telegram, …) bekommen nur den Text.
+## Automatisch verlängern
 
-## Automationen
+Unter **Konfigurieren** lässt sich **Automatisch verlängern** einschalten. Dann beantragt die
+Integration die Verlängerung von selbst, wenn ein Medium bald fällig und verlängerbar ist –
+pro Medium nur einmal.
 
-Für Fristen und Verlängerungen braucht es keine Automation mehr: siehe
-[Benachrichtigungen](#benachrichtigungen) und [Automatisch verlängern](#automatisch-verlängern).
-Für eigene Abläufe stehen alle Sensoren und das Ereignis `findus_opac_renewal` bereit, z. B.
-eine Sprachansage am Vorabend:
+- **Zeitraum für automatisches Verlängern** (Standard 2 Tage): so viele Tage vor der
+  Rückgabe wird verlängert.
+- **Nur automatisch verlängern**: auf Medienarten beschränken, z. B. nur Tonies und CDs.
+  Leer = alle.
+
+Im selben Dialog stehen auch das **Aktualisierungsintervall** (Standard alle 6 Stunden) und
+der **Zeitraum für „bald fällig“** (Standard 3 Tage).
+
+Tipp: Die neue Leihfrist zählt meist **ab dem Tag der Verlängerung**, nicht ab dem alten
+Rückgabedatum. Wer früh verlängert, verschenkt also Leihzeit – kurz vorher ist besser.
+
+## Gut zu wissen
+
+- **Die Daten sind ein paar Stunden alt.** Findus ist nur ein Spiegel des Büchereisystems,
+  das mehrmals täglich hochgeladen wird. Was du gerade am Tresen zurückgegeben hast, steht
+  vielleicht noch eine Weile in der Liste. Öfter abfragen hilft da nicht.
+- **Verlängern ist ein Antrag.** Die Bücherei bestätigt ihn sofort, die neue Frist erscheint
+  aber oft erst beim nächsten Abgleich. Bis dahin steht beim Medium „Verlängerung beantragt“.
+- **Nicht alles ist verlängerbar.** Die Bücherei entscheidet: meist erst ab 14 Tagen vor der
+  Rückgabe, nicht bei Vorbestellungen und nur 2–3 Mal pro Medium. Den Grund zeigt die Karte
+  direkt am Medium.
+- **Mitteilungen der Bücherei** sind freier Text. Ob es um eine Schließung geht, errät die
+  Integration anhand von Wörtern wie „geschlossen“ oder „Urlaub“ – das klappt meistens, aber
+  nicht immer. Lange Mitteilungen werden gekürzt, der Link führt zur ganzen Mitteilung.
+- **Coverbilder** lädt dein Browser direkt von Findus; deine Zugangsdaten werden dabei nicht
+  übertragen. Wer das nicht möchte, schaltet die Cover in der Karte aus.
+- **Sprachen:** Deutsch und Englisch, je nach Sprache von Home Assistant. Titel und Hinweise
+  der Bücherei bleiben, wie die Bücherei sie schreibt.
+
+## Entitäten
+
+Pro Ausweis gibt es ein Gerät mit diesen Entitäten. Die Entity-IDs beginnen mit dem
+Kontonamen, z. B. `sensor.lena_ausleihen` – die genauen IDs stehen auf der Geräteseite.
+
+| Entität | Inhalt |
+|---|---|
+| Ausleihen | Anzahl aller Ausleihen, mit allen Medien als Attribut `items` |
+| Bücher, Tonies, CDs, Filme, Spiele | Anzahl je Medienart (Filme und Spiele sind anfangs ausgeblendet) |
+| Nächste Rückgabe / Tage bis zur Rückgabe | Frühestes Rückgabedatum und die Tage bis dahin (negativ = überfällig) |
+| Heute fällig / Bald fällig / Überfällig / Verlängerbar | Anzahl der jeweiligen Medien |
+| Ausweis gültig bis | Ablaufdatum des Bibliotheksausweises |
+| Mitteilung der Bibliothek | Titel der aktuellen Mitteilung, leer wenn keine |
+| Überfällige Medien / Verlängerung möglich / Ausweis läuft bald ab | An/Aus – praktisch für Automationen |
+| Alle verlängern | Knopf: alle verlängerbaren Medien verlängern |
+| Jetzt abgleichen | Knopf: das Leserkonto sofort neu einlesen |
+
+<details>
+<summary>Attribute für eigene Karten und Vorlagen</summary>
+
+Jedes Medium in `items`:
+
+| Attribut | Bedeutung |
+|---|---|
+| `title`, `author`, `media_type` | Titel, Autor, Medienart wie bei der Bücherei |
+| `category` | `book`, `tonie`, `cd`, `video` oder `game` |
+| `due`, `days_left` | Rückgabedatum und Tage bis dahin |
+| `renewable`, `renew_requested` | verlängerbar / Verlängerung beantragt |
+| `renew_block` | Warum nicht verlängerbar: `limit` (ausgeschöpft), `reserved` (vorbestellt), `too_early` (noch zu früh), `other` |
+| `note` | Der Hinweis der Bücherei im Wortlaut |
+| `cover`, `series`, `mednr` | Cover-Adresse, Reihe, Mediennummer |
+
+Mitteilung der Bibliothek: `text`, `kind` (`closure` oder `info`), `truncated`, `url`, `images`.
+
+</details>
+
+<details>
+<summary>Für Automationen: Dienst und Ereignis</summary>
+
+Verlängern per Aktion – ohne Angaben alles Verlängerbare, sonst nur bestimmte Medien oder
+Medienarten:
+
+```yaml
+action: findus_opac.renew
+data:
+  config_entry_id: 0123456789abcdef0123456789abcdef
+  categories: [tonie, cd]    # optional
+  media_ids: ["0900000101"]  # optional
+```
+
+Nach jeder Verlängerung (auch der automatischen) gibt es das Ereignis
+`findus_opac_renewal` mit `account_name`, `trigger` (`manual` oder `auto`) und pro Medium
+`title`, `old_due`, `new_due` und `status` (`renewed`, `requested` oder `failed`).
+
+Beispiel – Sprachansage am Vorabend:
 
 ```yaml
 automation:
@@ -236,85 +258,24 @@ automation:
             Morgen müssen {{ states('sensor.lena_bald_fallig') }} Medien zur Bücherei.
 ```
 
-Die Entity-IDs hängen vom Kontonamen und der Systemsprache ab – auf der Geräteseite nachsehen.
+</details>
 
-## Dashboard-Karte
+## Probleme?
 
-Die Integration bringt eine eigene Karte mit und registriert sie selbst – keine
-Ressource eintragen, kein extra HACS-Frontend-Paket. Nach dem Neustart taucht sie im
-Karten-Dialog als **„Findus Bibliothek“** auf und wählt den Ausleihen-Sensor automatisch.
-
-- Coverbild je Medium (fehlt es, erscheint das Symbol der Medienart)
-- Rückgabedatum mit „heute“, „in 2 Tagen“, rot bei überfälligen, orange bei bald fälligen Medien
-- Abzeichen „verlängerbar“ und ein Verlängern-Symbol **pro Medium**
-- Knopf „N verlängern“ für alle verlängerbaren Medien
-- Abgleich-Symbol im Kopf („Jetzt abgleichen“)
-
-```yaml
-type: custom:findus-opac-card
-entity: sensor.lena_ausleihen
-title: Lenas Bücherei     # optional, Standard: Kontoname
-show_renew: true          # Verlängern-Knöpfe anzeigen
-show_covers: true         # Coverbilder anzeigen
-max_items: 0              # 0 = alle
-warn_days: 3              # orange ab so vielen Tagen vor der Rückgabe
-group_by: due             # due (Rückgabedatum) | category (Medienart) | none – aufklappbare Gruppen
-max_height: 400           # Listenhöhe in px, darüber scrollbar; 0 = keine Begrenzung
-```
-
-Die Cover lädt der Browser des Betrachters direkt von den Cover-Servern von Findus
-(`mycover.findus-internet-opac.de`, `covers-buchhandel-de.findus-internet-opac.de`);
-Zugangsdaten werden dabei nicht übertragen. Wer das nicht möchte: `show_covers: false`.
-
-Nach einem Update der Integration ggf. den Browser-Cache leeren (Strg+Umschalt+R).
-
-## Ausleihliste als Markdown-Karte
-
-Alternativ ohne eigene Karte, nur mit Bordmitteln:
-
-```yaml
-type: markdown
-title: Bücherei
-content: >
-  {% set items = state_attr('sensor.lena_ausleihen', 'items') or [] %}
-  {% if not items %}Keine Ausleihen. 🎉{% endif %}
-  {% for i in items %}
-  {% if i.days_left < 0 %}<font color="red">**{{ i.title }}**</font>
-  {% else %}**{{ i.title }}**{% endif %} · {{ i.media_type }}<br>
-  fällig {{ as_timestamp(i.due) | timestamp_custom('%d.%m.%Y') }}
-  ({% if i.days_left < 0 %}<font color="red">{{ -i.days_left }} Tage überfällig</font>
-  {% elif i.days_left == 0 %}heute{% else %}in {{ i.days_left }} Tagen{% endif %})
-  {% if i.renewable %} · 🔄 verlängerbar{% elif i.note %} · <small>{{ i.note }}</small>{% endif %}
-
-  {% endfor %}
-```
-
-## Symbol
-
-Das Fuchs-Symbol ist eine eigene Zeichnung (`images/fox.svg`) und **nicht** das Logo von
-Findus. Neuere Home-Assistant-Versionen zeigen es automatisch an (Ordner `brand/`).
-
-## Sprachen
-
-Deutsch und Englisch. Eine weitere Sprache braucht zwei Dateien:
-
-1. `custom_components/findus_opac/translations/<sprache>.json` – Kopie von `en.json`,
-   übersetzt: Einrichtung, Optionen, Entitäten, Fehler, Dienst **und** Benachrichtigungen
-   (Schlüssel `notify_*` unter `exceptions`). Platzhalter in `{…}` unverändert lassen.
-   Datumsformate (`notify_date_short`, `notify_date_long`) nutzen `%a` Wochentag, `%b`
-   Monatsname, `%d`/`%m` Tag/Monat, `%D`/`%M` zweistellig, `%Y` Jahr.
-2. `frontend/findus-opac-card.js` – ein Block in `TEXT` für die Karte.
-
-Fehlende Texte fallen auf Englisch zurück. Titel, Medienarten und Hinweise der Bücherei
-kommen von Findus und bleiben deutsch.
+- **„Anmeldung fehlgeschlagen“:** Zugangsdaten auf der Webseite der Bücherei prüfen – dort
+  müssen sie genauso funktionieren.
+- **Karte fehlt oder ist veraltet:** Home Assistant neu starten und die Seite ohne Cache
+  neu laden (siehe [Dashboard-Karte](#dashboard-karte)).
+- **Fehler melden:** auf der Geräteseite **Diagnose herunterladen** (Zugangsdaten sind darin
+  geschwärzt) und mit einer kurzen Beschreibung als
+  [Issue](https://github.com/ben-epp/ha-findus-opac/issues) anlegen.
 
 ## Datenschutz
 
-- Ausweisnummer und Geburtsdatum/Passwort liegen im Konfigurationseintrag von Home Assistant
-  (`.storage/core.config_entries`), wie bei anderen Integrationen auch.
-- Es werden nur die Findus-Server der eingestellten Bücherei abgefragt.
-- Die Diagnose-Datei (Gerät → Diagnose herunterladen) schwärzt Zugangsdaten und Formularfelder.
+- Ausweisnummer und Geburtsdatum/Passwort bleiben in deinem Home Assistant.
+- Abgefragt wird nur der Findus-Server deiner Bücherei, sonst nichts.
 
 ## Lizenz
 
-MIT – siehe [LICENSE](LICENSE).
+MIT – siehe [LICENSE](LICENSE). Das Fuchs-Symbol ist eine eigene Zeichnung und nicht das Logo
+von Findus.
