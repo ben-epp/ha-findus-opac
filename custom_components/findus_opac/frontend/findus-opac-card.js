@@ -2,7 +2,7 @@
  * Findus OPAC card: loan list with due dates and a renew button.
  * Served and auto-registered by the findus_opac integration; no build step, no dependencies.
  */
-const CARD_VERSION = "0.5.0";
+const CARD_VERSION = "0.5.1";
 const DOMAIN = "findus_opac";
 
 const ICONS = {
