@@ -1,12 +1,18 @@
 # Changelog
 
-## 0.5.2 – unreleased
+## 0.5.2 – 2026-11-05
 
 - Nicht verlängerbare Medien zeigen den Grund: neues Attribut `renew_block` (`limit`,
   `reserved`, `too_early`, `other`; leer, wenn verlängerbar oder beantragt), der volle Text
   bleibt in `note`. Die Karte zeigt ihn als Chip (auch am Handy, nicht nur als Tooltip), die
   Benachrichtigung hängt ihn an bald/heute fällige und überfällige Medien an, z. B.
   „(Verlängerungen ausgeschöpft)“.
+- README für Nutzer neu geschrieben: Installation per HACS-Knopf, Einrichtung, Karte mit
+  Screenshots, Erinnerungen, automatisches Verlängern, Hilfe bei Problemen.
+- Manifest: Kategorien für Home Assistant (`local_services`,
+  `productivity_information.calendars_todos`).
+- CI: aktuelle Versionen von `actions/checkout` und `actions/setup-python`; Release lässt
+  sich auf GitHub auch von Hand für ein vorhandenes Tag starten.
 
 ## 0.5.1 – 2026-11-04
 
