@@ -80,10 +80,16 @@ Die Karte wird mit der Integration mitgeliefert – nichts extra installieren. D
 bearbeiten → **Karte hinzufügen** → **„Findus Bibliothek“**. Sie findet dein Konto von
 selbst; alles Weitere stellst du direkt im Karten-Editor ein.
 
-<p>
-  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-overview.png" alt="Karte mit Mitteilung der Bücherei, verlängerbaren Tonies und beantragter Verlängerung" width="360">
-  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-books.png" alt="Karte mit aufgeklappten Büchern und Coverbildern" width="360">
-</p>
+<table>
+  <tr>
+    <td><img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-overview.png" alt="Karte nach Medienart gruppiert: Mitteilung, verlängerbare Tonies, beantragte Verlängerung" width="360"></td>
+    <td><img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-by-date.png" alt="Karte nach Rückgabedatum gruppiert" width="360"></td>
+  </tr>
+  <tr>
+    <td align="center">Gruppiert nach Medienart</td>
+    <td align="center">Gruppiert nach Rückgabedatum</td>
+  </tr>
+</table>
 
 Was die Karte zeigt:
 
