@@ -81,7 +81,7 @@ bearbeiten → **Karte hinzufügen** → **„Findus Bibliothek“**. Sie findet
 selbst; alles Weitere stellst du direkt im Karten-Editor ein.
 
 <p>
-  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-tonies.png" alt="Karte nach Medienart gruppiert, Tonies aufgeklappt" width="360">
+  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-overview.png" alt="Karte mit Mitteilung der Bücherei, verlängerbaren Tonies und beantragter Verlängerung" width="360">
   <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-books.png" alt="Karte mit aufgeklappten Büchern und Coverbildern" width="360">
 </p>
 

@@ -80,7 +80,7 @@ The card ships with the integration – nothing extra to install. Edit dashboard
 set in the card editor.
 
 <p>
-  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-tonies.png" alt="Card grouped by media type, Tonies expanded" width="360">
+  <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-overview.png" alt="Card with library announcement, renewable Tonies and a requested renewal" width="360">
   <img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-books.png" alt="Card with books expanded, showing covers" width="360">
 </p>
 
