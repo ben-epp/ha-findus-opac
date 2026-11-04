@@ -38,7 +38,7 @@ nutzen (über 230, z. B. `alzey.findus-internet-opac.de`).
 ### HACS (benutzerdefiniertes Repository)
 
 1. HACS öffnen → Menü (⋮) → **Benutzerdefinierte Repositories**.
-2. `https://github.com/OWNER/REPO` eintragen, Kategorie **Integration**.
+2. `https://github.com/ben-epp/ha-findus-opac` eintragen, Kategorie **Integration**.
 3. **Findus Internet-OPAC** herunterladen und Home Assistant neu starten.
 
 HACS funktioniert nur mit GitHub. Wird das Projekt woanders entwickelt (z. B. Forgejo),

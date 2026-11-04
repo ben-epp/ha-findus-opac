@@ -37,7 +37,7 @@ due dates, overdue items and a renew button. Works with every library that uses
 ### HACS (custom repository)
 
 1. Open HACS → menu (⋮) → **Custom repositories**.
-2. Add `https://github.com/OWNER/REPO`, category **Integration**.
+2. Add `https://github.com/ben-epp/ha-findus-opac`, category **Integration**.
 3. Download **Findus Internet-OPAC** and restart Home Assistant.
 
 HACS only works with GitHub. If you develop elsewhere (e.g. Forgejo), a push mirror to GitHub is enough.
