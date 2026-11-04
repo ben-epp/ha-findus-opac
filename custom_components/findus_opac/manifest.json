@@ -6,6 +6,10 @@
     "http",
     "lovelace"
   ],
+  "categories": [
+    "local_services",
+    "productivity_information.calendars_todos"
+  ],
   "codeowners": [
     "@ben-epp"
   ],
