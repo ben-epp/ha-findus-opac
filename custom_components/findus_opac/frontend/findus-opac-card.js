@@ -2,7 +2,7 @@
  * Findus OPAC card: loan list with due dates and a renew button.
  * Served and auto-registered by the findus_opac integration; no build step, no dependencies.
  */
-const CARD_VERSION = "0.5.1";
+const CARD_VERSION = "0.5.2";
 const DOMAIN = "findus_opac";
 
 const ICONS = {
@@ -24,6 +24,12 @@ const TEXT = {
     overdueDays: (n) => (n === 1 ? "seit 1 Tag überfällig" : `seit ${n} Tagen überfällig`),
     renewable: "verlängerbar",
     pending: "Verlängerung beantragt",
+    block: {
+      limit: "Verlängerungen ausgeschöpft",
+      reserved: "Vorbestellt",
+      too_early: "Noch nicht verlängerbar",
+      other: "Nicht verlängerbar",
+    },
     renewAll: (n) => `${n} verlängern`,
     renewing: "Verlängerung wird beantragt…",
     renewed: "Verlängerung beantragt. Neue Fristen erscheinen ggf. erst nach dem nächsten Abgleich.",
@@ -52,6 +58,12 @@ const TEXT = {
     overdueDays: (n) => (n === 1 ? "1 day overdue" : `${n} days overdue`),
     renewable: "renewable",
     pending: "renewal requested",
+    block: {
+      limit: "Renewal limit reached",
+      reserved: "Reserved",
+      too_early: "Not yet renewable",
+      other: "Not renewable",
+    },
     renewAll: (n) => `Renew ${n}`,
     renewing: "Requesting renewal…",
     renewed: "Renewal requested. New due dates may only appear after the library's next sync.",
@@ -229,6 +241,11 @@ class FindusOpacCard extends HTMLElement {
             <div class="left">${esc(dueText(i.days_left))}</div>
             ${i.renewable ? `<span class="chip">${esc(t.renewable)}</span>` : ""}
             ${i.renew_requested ? `<span class="chip pending">${esc(t.pending)}</span>` : ""}
+            ${
+              t.block[i.renew_block]
+                ? `<span class="chip block ${i.renew_block === "too_early" ? "early" : ""}" title="${esc(i.note)}">${esc(t.block[i.renew_block])}</span>`
+                : ""
+            }
             ${
               i.renewable && entryId && this._config.show_renew
                 ? `<button class="icon-btn item-renew" data-mednr="${esc(i.mednr)}" title="${esc(t.renewOne)}"
@@ -486,6 +503,8 @@ const STYLE = `<style>
   .chip { display: inline-block; margin-top: 2px; font-size: .75em; padding: 0 6px; border-radius: 8px;
           border: 1px solid var(--success-color, #4caf50); color: var(--success-color, #4caf50); }
   .chip.pending { border-color: var(--info-color, #039be5); color: var(--info-color, #039be5); }
+  .chip.block { border-color: var(--warning-color, #ffa600); color: var(--warning-color, #ffa600); }
+  .chip.block.early { border-color: var(--divider-color); color: var(--secondary-text-color); }
   .empty, .more, .warn { padding: 8px 0; color: var(--secondary-text-color); }
   .warn { color: var(--error-color); }
   .actions { display: flex; justify-content: flex-end; border-top: 1px solid var(--divider-color); padding-top: 4px; margin-top: 4px; }

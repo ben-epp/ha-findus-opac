@@ -77,7 +77,11 @@ def _items(t: Texts, loans: Iterable[Loan]) -> str:
     def name(l: Loan) -> str:
         if l.renewable:
             return f"{l.title} ({t['renewable']})"
-        return f"{l.title} ({t['pending']})" if l.renew_requested else l.title
+        if l.renew_requested:
+            return f"{l.title} ({t['pending']})"
+        # "too early" cannot apply to items that are due soon or overdue; stay quiet then.
+        block = l.renew_block
+        return f"{l.title} ({t[f'block_{block}']})" if block and block != "too_early" else l.title
 
     return ", ".join(name(l) for l in loans)
 

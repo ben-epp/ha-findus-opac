@@ -310,3 +310,18 @@ async def test_notice_images_resolved_filtered_and_capped():
     assert note is not None
     assert note.images == [f"https://musterstadt.findus-internet-opac.de/up/{i}.jpg" for i in range(3)]
     assert "jpg" not in note.text
+
+
+def test_renew_block_from_reason():
+    acc = parse_account(PAGE)
+    # renewable, renewable, "erst 14 Tage vorher", "vorbestellt", "Maximale Anzahl"
+    assert [l.renew_block for l in acc.loans] == ["", "", "too_early", "reserved", "limit"]
+
+
+def test_renew_block_other_and_pending():
+    from custom_components.findus_opac.client import Loan
+
+    base = dict(mednr="1", title="T", author="", media_type="", due=date(2026, 11, 6))
+    assert Loan(**base, renewable=False, note="Gesperrt").renew_block == "other"
+    assert Loan(**base, renewable=False, renew_requested=True, note="x").renew_block == ""
+    assert Loan(**base, renewable=False).renew_block == ""  # no reason given

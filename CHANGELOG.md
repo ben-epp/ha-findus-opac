@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2 – unreleased
+
+- Nicht verlängerbare Medien zeigen den Grund: neues Attribut `renew_block` (`limit`,
+  `reserved`, `too_early`, `other`; leer, wenn verlängerbar oder beantragt), der volle Text
+  bleibt in `note`. Die Karte zeigt ihn als Chip (auch am Handy, nicht nur als Tooltip), die
+  Benachrichtigung hängt ihn an bald/heute fällige und überfällige Medien an, z. B.
+  „(Verlängerungen ausgeschöpft)“.
+
 ## 0.5.1 – 2026-11-04
 
 Erste öffentliche Version. Die Versionen davor (siehe unten) waren intern.

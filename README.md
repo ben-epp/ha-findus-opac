@@ -119,7 +119,7 @@ Bücherei zuletzt hochgeladen hat – eine gerade am Tresen zurückgegebene Toni
 also noch ein paar Stunden in der Liste stehen.
 
 Jedes Element in `items` hat: `mednr`, `title`, `author`, `media_type`, `category`
-(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `renew_requested`, `note`, `cover` (Cover-URL oder leer).
+(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `renew_requested`, `note` (Grund der Bücherei, wenn nicht verlängerbar), `renew_block` (`limit` = Verlängerungen ausgeschöpft, `reserved` = vorbestellt, `too_early`, `other`; leer, wenn verlängerbar oder beantragt), `cover` (Cover-URL oder leer).
 `cover` ist das Coverbild, das Findus selbst anzeigt (Tonies über den mycover-Dienst per EAN,
 Bücher über den Buchhandels-Coverdienst per ISBN).
 Die Medienart kommt von der Bücherei (z. B. „Kinder- und Jugendliteratur“) und wird
