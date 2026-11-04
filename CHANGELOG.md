@@ -11,6 +11,7 @@
   Screenshots, Erinnerungen, automatisches Verlängern, Hilfe bei Problemen.
 - Manifest: Kategorien für Home Assistant (`local_services`,
   `productivity_information.calendars_todos`).
+- `hacs.json`: Land `DE`, da Findus nur von deutschen Büchereien genutzt wird.
 - CI: aktuelle Versionen von `actions/checkout` und `actions/setup-python`; Release lässt
   sich auf GitHub auch von Hand für ein vorhandenes Tag starten.
 
