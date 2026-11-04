@@ -150,6 +150,15 @@
     "notify_pending": {
       "message": "Verlängerung beantragt"
     },
+    "notify_block_limit": {
+      "message": "Verlängerungen ausgeschöpft"
+    },
+    "notify_block_reserved": {
+      "message": "von anderen vorbestellt"
+    },
+    "notify_block_other": {
+      "message": "nicht verlängerbar"
+    },
     "notify_overdue_one": {
       "message": "Überfällig seit 1 Tag: {items}"
     },

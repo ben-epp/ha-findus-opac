@@ -113,7 +113,7 @@ One device per account with these entities (entity IDs start with the account na
 so a Tonie just returned at the desk may stay in the list for a few more hours.
 
 Each entry in `items` has: `mednr`, `title`, `author`, `media_type`, `category`
-(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `renew_requested`, `note`, `cover` (cover image URL or empty).
+(`book`, `tonie`, `cd`, `video`, `game`), `due`, `days_left`, `renewable`, `renew_requested`, `note` (Findus's reason when not renewable), `renew_block` (`limit` = renewal limit reached, `reserved`, `too_early`, `other`; empty if renewable or requested), `cover` (cover image URL or empty).
 `cover` is the cover image Findus itself shows (Tonies via the mycover service by EAN, books via
 the book trade cover service by ISBN).
 The media type comes from the library (e.g. "Kinder- und Jugendliteratur") and is mapped to a

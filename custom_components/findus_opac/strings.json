@@ -150,6 +150,15 @@
     "notify_pending": {
       "message": "renewal requested"
     },
+    "notify_block_limit": {
+      "message": "renewal limit reached"
+    },
+    "notify_block_reserved": {
+      "message": "reserved by someone else"
+    },
+    "notify_block_other": {
+      "message": "not renewable"
+    },
     "notify_overdue_one": {
       "message": "Overdue for 1 day: {items}"
     },

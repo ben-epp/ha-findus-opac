@@ -43,6 +43,12 @@ IMG_SRC_RE = re.compile(r'<img[^>]*?\ssrc=["\']([^"\']+)["\']', re.I)
 LOGIN_MARKER = 'name="lesernr" type="text"'
 ACCOUNT_MARKER = "findus_leserkonto_ausgeliehen_tabelle"
 EMPTY_MARKER = "findus_leserkonto"
+# Why Findus refuses a renewal, from its reason text (see Loan.renew_block).
+RENEW_BLOCKS = (
+    ("limit", re.compile(r"maximale anzahl|h(?:ö|oe)chst(?:zahl|anzahl)", re.I)),
+    ("reserved", re.compile(r"vorbestellt|reserviert", re.I)),
+    ("too_early", re.compile(r"noch nicht|erst \d+ tage", re.I)),
+)
 
 
 class FindusError(Exception):
@@ -69,6 +75,16 @@ class Loan:
     cover_url: str = ""
     series: str = ""
     renew_requested: bool = False  # Verlängerungsantrag pending until the next library sync
+
+    @property
+    def renew_block(self) -> str:
+        """Why it cannot be renewed: limit / reserved / too_early / other.
+
+        Empty if renewable, already requested, or Findus gave no reason text.
+        """
+        if self.renewable or self.renew_requested or not self.note:
+            return ""
+        return next((key for key, rx in RENEW_BLOCKS if rx.search(self.note)), "other")
 
     @property
     def category(self) -> str:

@@ -78,7 +78,7 @@ async def test_daily_digest(hass, freezer, opac, de):
     data = calls[0].data
     assert data["title"] == "Bücherei: Kinder"
     assert data["message"].splitlines() == [
-        "Überfällig seit 17 Tagen: Wieso? Weshalb? Warum? – Wale & Delfine",
+        "Überfällig seit 17 Tagen: Wieso? Weshalb? Warum? – Wale & Delfine (von anderen vorbestellt)",
         "Heute fällig: Der kleine Drache (verlängerbar)",
         "Fällig am So., 8.11.: Lieder zum Mitsingen (verlängerbar)",
         "Ausweis gültig bis 01.12.2026 – bitte verlängern lassen",
@@ -101,7 +101,7 @@ async def test_next_day_only_overdue_repeats(hass, freezer, opac, de):
     lines = calls[1].data["message"].splitlines()
     # The Tonie due yesterday is overdue now; the CD (due soon) and the card were already sent.
     assert lines == [
-        "Überfällig seit 18 Tagen: Wieso? Weshalb? Warum? – Wale & Delfine",
+        "Überfällig seit 18 Tagen: Wieso? Weshalb? Warum? – Wale & Delfine (von anderen vorbestellt)",
         "Überfällig seit 1 Tag: Der kleine Drache (verlängerbar)",
     ]
 
@@ -358,3 +358,27 @@ def test_renewal_message_failed_and_pending_suffix():
         texts("de"), "Kinder", [{"title": "A", "status": "failed"}, {"title": "B", "status": "requested"}], "manual"
     )
     assert msg == "Verlängerung beantragt: B\nVerlängerung nicht angenommen: A"
+
+
+def test_build_message_names_renew_block():
+    today = date(2026, 11, 6)
+
+    def blocked(mednr, title, due, note):
+        return Loan(mednr=mednr, title=title, author="", media_type="", due=due, renewable=False, note=note)
+
+    _, msg = build_message(
+        texts("de"),
+        "Kinder",
+        {
+            "overdue": [blocked("1", "A", date(2026, 11, 5), "Maximale Anzahl der Verlängerungen erreicht.")],
+            "due_today": [blocked("2", "B", today, "Das Medium ist vorbestellt.")],
+            "due_soon": [blocked("3", "C", date(2026, 11, 8), "Verlängerung ist noch nicht möglich.")],
+        },
+        None,
+        today,
+    )
+    assert msg.splitlines() == [
+        "Überfällig seit 1 Tag: A (Verlängerungen ausgeschöpft)",
+        "Heute fällig: B (von anderen vorbestellt)",
+        "Fällig am So., 8.11.: C",  # "too early" is not worth a mention here
+    ]
