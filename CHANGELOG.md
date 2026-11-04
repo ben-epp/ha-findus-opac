@@ -1,18 +1,26 @@
 # Changelog
 
-## 0.5.1 – unreleased
+## 0.5.1 – 2026-11-04
 
-- Neuer Sensor „Mitteilung der Bibliothek“ mit dem Freitext-Hinweis der Bücherei (Titel als
-  Zustand; Attribute `text`, `kind`, `images`, `url`). Langer Text
-  wird bei 2000 Zeichen mit „…“ gekürzt und verlinkt auf die Webseite. Die Karte zeigt ihn als
+Erste öffentliche Version. Die Versionen davor (siehe unten) waren intern.
+
+- Ausleihen aus dem Findus-Leserkonto: Sensoren je Medienart, nächste Rückgabe, bald/heute
+  fällig, überfällig, verlängerbar; Binärsensoren; Diagnose mit geschwärzten Zugangsdaten.
+- Verlängern per Knopf, Dienst `findus_opac.renew` und optional automatisch.
+- Benachrichtigungen (Companion-App mit Verlängern-Knopf) und Ausweis-Gültigkeit.
+- Eigene Dashboard-Karte „Findus Bibliothek“, wird automatisch registriert.
+- Neu in dieser Version: Sensor „Mitteilung der Bibliothek“ mit dem Freitext-Hinweis der
+  Bücherei (Titel als Zustand; Attribute `text`, `kind`, `images`, `url`). Langer Text wird
+  bei 2000 Zeichen mit „…“ gekürzt und verlinkt auf die Webseite. Die Karte zeigt ihn als
   aufklappbaren Banner, abschaltbar mit `show_announcement`. Ob Schließzeit oder Info, ist
   eine Schlüsselwort-Schätzung.
-
-- Benachrichtigungstexte liegen jetzt in `translations/<sprache>.json` (Schlüssel `notify_*`);
-  eine neue Sprache braucht nur noch diese Datei plus einen Block in der Karte. Abschnitt
+- Benachrichtigungstexte liegen in `translations/<sprache>.json` (Schlüssel `notify_*`);
+  eine neue Sprache braucht nur diese Datei plus einen Block in der Karte. Abschnitt
   „Sprachen“ in der README.
 
-## 0.5.0 – unreleased
+## Entwicklungsverlauf vor der ersten Veröffentlichung
+
+### 0.5.0 – intern
 
 - Verlängerung mit echtem Konto geprüft: ein einziger Schritt, die Bücherei bestätigt mit
   „OK, Verlängerungsantrag wurde gestellt“.
@@ -23,7 +31,7 @@
   dann einen Fehler.
 - Doku: neue Leihfrist zählt ab dem Tag des Antrags.
 
-## 0.4.0 – unreleased
+### 0.4.0 – intern
 
 - Eingebaute Benachrichtigungen (Optionen „Benachrichtigen“, Uhrzeit, Anlässe): tägliche
   Übersicht zu bald fälligen, heute fälligen und überfälligen Medien, Hinweis vor Ablauf des
@@ -32,7 +40,7 @@
   Start nachgeholt.
 - Companion-App: Knopf „Verlängern“ direkt in der Benachrichtigung.
 
-## 0.3.2 – unreleased
+### 0.3.2 – intern
 
 - Karte: aufklappbare Gruppen nach Rückgabedatum oder Medienart (`group_by`, Standard
   Rückgabedatum; überfällige und bald fällige Gruppen offen), scrollbare Liste
@@ -44,7 +52,7 @@
 - Ausweis-Gültigkeit: Sensor „Ausweis gültig bis“ (aus dem Hinweis im Leserkonto) und
   Binärsensor „Ausweis läuft bald ab“ (30 Tage vorher); in der Karte unter dem Titel.
 
-## 0.3.0 – unreleased
+### 0.3.0 – intern
 
 - Eigene Dashboard-Karte „Findus Bibliothek“ (`custom:findus-opac-card`), wird automatisch
   registriert: Cover, Fristen farbig, Verlängern pro Medium und für alle, Abgleich-Symbol.
@@ -57,12 +65,12 @@
 - Eigenes Fuchs-Symbol (`brand/`).
 - Anmeldung sendet die versteckten Felder der Login-Seite mit.
 
-## 0.2.0 – unreleased
+### 0.2.0 – intern
 
 - Kontoname, Tage bis zur Rückgabe, heute/bald fällig, Optionen, Reauth, Diagnose,
   Übersetzungen, Tests.
 
-## 0.1.0 – unreleased
+### 0.1.0 – intern
 
 - Erste Version / first version.
 - Einrichtung über die UI: Kontoname, Subdomain, Ausweisnummer, Geburtsdatum/Passwort.
