@@ -161,6 +161,7 @@ async def test_options_flow_reloads(hass, opac, loaded_entry):
         CONF_NOTIFY_TARGETS: [],
         CONF_NOTIFY_TIME: "08:00:00",
         CONF_NOTIFY_EVENTS: ["due_soon", "due_today", "overdue", "renewed", "card_expiry"],
+        "notify_show_titles": False,
     }
     coordinator = loaded_entry.runtime_data
     assert coordinator.update_interval == timedelta(hours=12)

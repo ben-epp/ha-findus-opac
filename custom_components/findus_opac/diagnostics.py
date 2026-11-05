@@ -1,4 +1,4 @@
-"""Diagnostics with credentials redacted."""
+"""Diagnostics without credentials, names or loan titles."""
 from __future__ import annotations
 
 from typing import Any
@@ -6,10 +6,11 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_CARD, CONF_SECRET
+from .const import CONF_ACCOUNT_NAME, CONF_CARD, CONF_NOTIFY_TARGETS, CONF_SECRET
 from .coordinator import FindusConfigEntry
 
-TO_REDACT = {CONF_CARD, CONF_SECRET}
+# Credentials, plus names: account names and notify targets often identify a person.
+TO_REDACT = {CONF_ACCOUNT_NAME, CONF_CARD, CONF_NOTIFY_TARGETS, CONF_SECRET}
 
 
 async def async_get_config_entry_diagnostics(
@@ -20,13 +21,13 @@ async def async_get_config_entry_diagnostics(
     return {
         "entry": {
             "data": async_redact_data(dict(entry.data), TO_REDACT),
-            "options": dict(entry.options),
+            "options": async_redact_data(dict(entry.options), TO_REDACT),
         },
         "last_update_success": coordinator.last_update_success,
+        # No titles: they reveal what someone reads, and this file gets posted to issues.
         "loans": [
             {
                 "mednr": l.mednr,
-                "title": l.title,
                 "media_type": l.media_type,
                 "category": l.category,
                 "due": l.due.isoformat(),

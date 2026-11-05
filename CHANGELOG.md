@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0 – 2026-11-05
+
+Datenschutz. **Geänderter Standard:** Benachrichtigungen nennen keine Titel mehr.
+
+- Neue Option **Titel in Benachrichtigungen zeigen** (Standard: aus). Die Nachricht nennt dann
+  nur die Anzahl, z. B. „Heute fällig: 2 Medien“. Der Knopf „Verlängern“ bleibt. Wer die Titel
+  wie bisher sehen will, schaltet die Option unter **Konfigurieren** ein.
+- Diagnose schwärzt auch den Kontonamen und die Benachrichtigungsziele, weil beide oft einen
+  Personennamen enthalten (z. B. `mobile_app_lenas_iphone`), und enthält keine Medientitel mehr.
+- Das Attribut `items` wird nicht mehr in der Home-Assistant-Historie gespeichert.
+- Bilder in Mitteilungen der Bücherei werden nur noch über `https://` geladen.
+- Das Log nennt beim Fehler im automatischen Verlängern nicht mehr den Kontonamen.
+- README: Abschnitt Datenschutz korrigiert und ergänzt.
+
 ## 0.5.2 – 2026-11-05
 
 - Nicht verlängerbare Medien zeigen den Grund: neues Attribut `renew_block` (`limit`,

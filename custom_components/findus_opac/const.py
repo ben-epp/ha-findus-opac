@@ -25,6 +25,7 @@ DEFAULT_AUTO_RENEW_DAYS = 2
 CONF_NOTIFY_TARGETS = "notify_targets"
 CONF_NOTIFY_TIME = "notify_time"
 CONF_NOTIFY_EVENTS = "notify_events"
+CONF_NOTIFY_SHOW_TITLES = "notify_show_titles"  # off: counts only, titles stay off lock screens
 DEFAULT_NOTIFY_TIME = "08:00:00"
 NOTIFY_EVENTS = ("due_soon", "due_today", "overdue", "renewed", "card_expiry")
 # mobile_app action id prefix; the config entry id is appended
@@ -50,4 +51,4 @@ RENEW_RECHECK_MINUTES = 30
 # Bundled Lovelace card (frontend/findus-opac-card.js); bump CARD_VERSION to bust browser caches.
 CARD_FILE = "findus-opac-card.js"
 CARD_URL = f"/{DOMAIN}/{CARD_FILE}"
-CARD_VERSION = "0.5.2"
+CARD_VERSION = "0.6.0"

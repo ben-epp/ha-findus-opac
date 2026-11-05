@@ -110,4 +110,4 @@ async def test_auto_renew_error_keeps_update(hass, opac, make_entry, caplog):
     coordinator = entry.runtime_data
     assert coordinator.last_update_success
     assert len(coordinator.data.loans) == 5
-    assert "Auto-renew for Kinder failed: down" in caplog.text
+    assert "failed: down" in caplog.text and "Kinder" not in caplog.text

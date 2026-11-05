@@ -130,7 +130,7 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
             renewed, outcomes = await self.client.renew(targets)
         except (FindusError, aiohttp.ClientError, TimeoutError) as err:
             # Never fail the poll because of auto-renew; the next due date change retries.
-            _LOGGER.warning("Auto-renew for %s failed: %s", self.account_name, err)
+            _LOGGER.warning("Auto-renew for entry %s failed: %s", self.entry.entry_id, err)
             return account
         self._after_renew(outcomes, "auto")
         return renewed

@@ -169,6 +169,8 @@ async def async_setup_entry(
 
 class FindusSensor(FindusEntity, SensorEntity):
     entity_description: FindusSensorEntityDescription
+    # Titles and due dates stay out of the recorder database: reading history is private.
+    _unrecorded_attributes = frozenset({"items"})
 
     def __init__(
         self, coordinator: FindusCoordinator, description: FindusSensorEntityDescription

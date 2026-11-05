@@ -16,3 +16,4 @@ findus-probe/
 
 # Raw screenshots (personal data); only cropped/redacted copies are committed
 images/WhatsApp*
+.serena/

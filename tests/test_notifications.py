@@ -16,6 +16,7 @@ from homeassistant.util import dt as dt_util
 from custom_components.findus_opac.client import Loan
 from custom_components.findus_opac.const import (
     CONF_NOTIFY_EVENTS,
+    CONF_NOTIFY_SHOW_TITLES,
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_TIME,
     DOMAIN,
@@ -41,7 +42,12 @@ def _entry(**options) -> MockConfigEntry:
         title="Kinder",
         data=dict(ENTRY_DATA),
         unique_id=f"musterstadt_{CARD}",
-        options={CONF_NOTIFY_TARGETS: ["mobile_app_phone"], CONF_NOTIFY_TIME: "08:00:00", **options},
+        options={
+            CONF_NOTIFY_TARGETS: ["mobile_app_phone"],
+            CONF_NOTIFY_TIME: "08:00:00",
+            CONF_NOTIFY_SHOW_TITLES: True,
+            **options,
+        },
     )
 
 
@@ -88,6 +94,29 @@ async def test_daily_digest(hass, freezer, opac, de):
     assert data["data"]["actions"] == [
         {"action": f"FINDUS_OPAC_RENEW_{entry.entry_id}", "title": "Verlängern"}
     ]
+
+
+async def test_digest_hides_titles_by_default(hass, freezer, opac, de):
+    """Off unless opted in: counts only, and the Renew button still works."""
+    calls = async_mock_service(hass, "notify", "mobile_app_phone")
+    freezer.move_to(DAY1)
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Kinder",
+        data=dict(ENTRY_DATA),
+        unique_id=f"musterstadt_{CARD}",
+        options={CONF_NOTIFY_TARGETS: ["mobile_app_phone"], CONF_NOTIFY_TIME: "08:00:00"},
+    )
+    await _setup(hass, entry)
+    await _fire_at(hass, freezer, DAY1)
+
+    assert calls[0].data["message"].splitlines() == [
+        "Überfällig seit 17 Tagen: 1 Medium",
+        "Heute fällig: 1 Medium",
+        "Fällig am So., 8.11.: 1 Medium",
+        "Ausweis gültig bis 01.12.2026 – bitte verlängern lassen",
+    ]
+    assert calls[0].data["data"]["actions"][0]["title"] == "Verlängern"
 
 
 async def test_next_day_only_overdue_repeats(hass, freezer, opac, de):
@@ -382,3 +411,16 @@ def test_build_message_names_renew_block():
         "Heute fällig: B (von anderen vorbestellt)",
         "Fällig am So., 8.11.: C",  # "too early" is not worth a mention here
     ]
+
+
+def test_renewal_message_without_titles():
+    items = [
+        {"title": "Secret A", "status": "requested"},
+        {"title": "Secret B", "status": "requested"},
+        {"title": "Secret C", "status": "renewed", "new_due": "2026-12-06"},
+        {"title": "Secret D", "status": "failed"},
+    ]
+    _, msg = build_renewal_message(texts("en"), "Kinder", items, "auto", show_titles=False)
+    assert "Secret" not in msg
+    assert msg.startswith("Automatic: Renewal requested: 2 items\n")
+    assert msg.endswith("Renewal not accepted: 1 item")

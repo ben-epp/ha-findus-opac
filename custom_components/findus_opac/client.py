@@ -298,7 +298,8 @@ class FindusClient:
         if note := account.announcement:
             note.url = self.home_url
             urls = (urljoin(self.url, u) for u in note.images)  # relative srcs -> absolute
-            note.images = [u for u in urls if u.startswith(("https://", "http://"))][:NOTICE_MAX_IMAGES]
+            # https only: plain http would expose the browser's request on the network.
+            note.images = [u for u in urls if u.startswith("https://")][:NOTICE_MAX_IMAGES]
 
     @property
     def login_url(self) -> str:
