@@ -18,6 +18,7 @@ from homeassistant.util import dt as dt_util
 from .client import Loan
 from .const import (
     CONF_NOTIFY_EVENTS,
+    CONF_NOTIFY_SHOW_TITLES,
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_TIME,
     DEFAULT_NOTIFY_TIME,
@@ -73,7 +74,15 @@ def _long_date(t: Texts, d: date) -> str:
     return _format_date(t, "date_long", d)
 
 
-def _items(t: Texts, loans: Iterable[Loan]) -> str:
+def _count(t: Texts, n: int) -> str:
+    """'1 item' / '3 items': stands in for titles when they should not be shown."""
+    return t["count_one"] if n == 1 else t["count_other"].format(count=n)
+
+
+def _items(t: Texts, loans: Iterable[Loan], show_titles: bool = True) -> str:
+    if not show_titles:
+        return _count(t, len(list(loans)))
+
     def name(l: Loan) -> str:
         if l.renewable:
             return f"{l.title} ({t['renewable']})"
@@ -92,6 +101,7 @@ def build_message(
     loans_by_kind: dict[str, list[Loan]],
     card_until: date | None,
     today: date,
+    show_titles: bool = True,
 ) -> tuple[str, str]:
     """(title, message) for one daily run. `loans_by_kind`: overdue / due_today / due_soon."""
     lines: list[str] = []
@@ -101,16 +111,16 @@ def build_message(
         by_days.setdefault(-l.days_left(today), []).append(l)
     for n in sorted(by_days, reverse=True):
         key = "overdue_one" if n == 1 else "overdue_other"
-        lines.append(t[key].format(count=n, items=_items(t, by_days[n])))
+        lines.append(t[key].format(count=n, items=_items(t, by_days[n], show_titles)))
 
     if today_loans := loans_by_kind.get("due_today"):
-        lines.append(t["due_today"].format(items=_items(t, today_loans)))
+        lines.append(t["due_today"].format(items=_items(t, today_loans, show_titles)))
 
     by_due: dict[date, list[Loan]] = {}
     for l in loans_by_kind.get("due_soon", []):
         by_due.setdefault(l.due, []).append(l)
     for d in sorted(by_due):
-        lines.append(t["due_on"].format(date=_short_date(t, d), items=_items(t, by_due[d])))
+        lines.append(t["due_on"].format(date=_short_date(t, d), items=_items(t, by_due[d], show_titles)))
 
     if card_until is not None:
         key = "card_expired" if card_until < today else "card"
@@ -120,22 +130,26 @@ def build_message(
 
 
 def build_renewal_message(
-    t: Texts, account_name: str, items: list[dict[str, Any]], trigger: str
+    t: Texts, account_name: str, items: list[dict[str, Any]], trigger: str, show_titles: bool = True
 ) -> tuple[str, str]:
     """(title, message) for a findus_opac_renewal event payload."""
+
+    def names(titles: list[str]) -> str:
+        return ", ".join(titles) if show_titles else _count(t, len(titles))
+
     lines: list[str] = []
     requested = [i["title"] for i in items if i.get("status") == "requested"]
     if requested:
-        lines.append(t["requested"].format(items=", ".join(requested)))
+        lines.append(t["requested"].format(items=names(requested)))
     by_due: dict[str, list[str]] = {}
     for i in items:
         if i.get("status") == "renewed" and i.get("new_due"):
             by_due.setdefault(i["new_due"], []).append(i["title"])
     for due in sorted(by_due):
         d = date.fromisoformat(due)
-        lines.append(t["renewed"].format(date=_short_date(t, d), items=", ".join(by_due[due])))
+        lines.append(t["renewed"].format(date=_short_date(t, d), items=names(by_due[due])))
     if failed := [i["title"] for i in items if i.get("status") == "failed"]:
-        lines.append(t["not_accepted"].format(items=", ".join(failed)))
+        lines.append(t["not_accepted"].format(items=names(failed)))
     message = "\n".join(lines)
     if trigger == "auto" and message:
         message = t["auto"].format(message=message)
@@ -157,6 +171,7 @@ class FindusNotifier:
         self.entry_id = entry.entry_id
         self.targets: list[str] = list(opts.get(CONF_NOTIFY_TARGETS) or [])
         self.events: set[str] = set(opts.get(CONF_NOTIFY_EVENTS, NOTIFY_EVENTS))
+        self.show_titles: bool = bool(opts.get(CONF_NOTIFY_SHOW_TITLES, False))
         self.at: time = dt_util.parse_time(
             str(opts.get(CONF_NOTIFY_TIME, DEFAULT_NOTIFY_TIME))
         ) or time(8, 0)
@@ -244,7 +259,7 @@ class FindusNotifier:
             return
         texts = await self._async_texts()
         title, message = build_message(
-            texts, self.coordinator.account_name, kinds, card_until, today
+            texts, self.coordinator.account_name, kinds, card_until, today, self.show_titles
         )
         renewable = any(l.renewable for group in kinds.values() for l in group)
         await self._async_send(title, message, action_title=texts["action"] if renewable else None)
@@ -283,7 +298,11 @@ class FindusNotifier:
         if data.get("config_entry_id") != self.entry_id or not data.get("items"):
             return
         title, message = build_renewal_message(
-            await self._async_texts(), self.coordinator.account_name, data["items"], data.get("trigger", "manual")
+            await self._async_texts(),
+            self.coordinator.account_name,
+            data["items"],
+            data.get("trigger", "manual"),
+            self.show_titles,
         )
         if message:
             await self._async_send(title, message)

@@ -142,6 +142,15 @@ It looks like this:
 
 ```text
 Library: Lena
+Overdue for 2 days: 1 item
+Due today: 1 item
+Due Sun 8 Nov: 1 item
+```
+
+Titles only appear if you switch on **Show titles in notifications**:
+
+```text
+Library: Lena
 Overdue for 2 days: Whales & Dolphins (renewal limit reached)
 Due today: The Little Dragon (renewable)
 Due Sun 8 Nov: Sing-along Songs (renewable)
@@ -266,14 +275,24 @@ automation:
   the same way.
 - **Card missing or outdated:** restart Home Assistant and reload the page without cache
   (see [Dashboard card](#dashboard-card)).
-- **Report a bug:** on the device page choose **Download diagnostics** (credentials are
-  redacted) and open an [issue](https://github.com/ben-epp/ha-findus-opac/issues) with a short
+- **Report a bug:** on the device page choose **Download diagnostics** (it leaves out
+  credentials, names and titles, but shows your library's name) and open an [issue](https://github.com/ben-epp/ha-findus-opac/issues) with a short
   description.
 
 ## Privacy
 
 - Card number and birth date/password stay in your Home Assistant.
-- Only your library's Findus server is contacted, nothing else.
+- Home Assistant only contacts your library's Findus server.
+- Your browser also loads cover images from Findus servers (the address can contain the ISBN)
+  and images from library announcements, which can be hosted elsewhere. Both can be switched
+  off in the card.
+- Card number and birth date/password are stored unencrypted in the `.storage` folder, as with
+  other integrations, so unencrypted backups contain them.
+- All users of your Home Assistant can see the loans of every card.
+- With titles switched on in notifications, they appear on the lock screen and pass through
+  the service you use (Google, Apple, Telegram, e-mail).
+- The `findus_opac_renewal` event contains titles and the account name and ends up in Home
+  Assistant's history.
 
 ## License
 

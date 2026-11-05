@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 
 from custom_components.findus_opac.client import (
+    Account,
+    Announcement,
     AuthError,
     FindusClient,
     ParseError,
@@ -325,3 +327,11 @@ def test_renew_block_other_and_pending():
     assert Loan(**base, renewable=False, note="Gesperrt").renew_block == "other"
     assert Loan(**base, renewable=False, renew_requested=True, note="x").renew_block == ""
     assert Loan(**base, renewable=False).renew_block == ""  # no reason given
+
+
+async def test_announcement_drops_plain_http_images():
+    client = FindusClient("musterstadt", "1", "2", None, None)
+    account = Account()
+    note = Announcement(title="t", text="x", kind="info", images=["http://evil.test/a.jpg", "/up/b.jpg"])
+    client._announce(account, note)
+    assert account.announcement.images == ["https://musterstadt.findus-internet-opac.de/up/b.jpg"]

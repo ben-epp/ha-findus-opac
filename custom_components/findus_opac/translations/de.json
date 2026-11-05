@@ -51,7 +51,8 @@
           "auto_renew_categories": "Nur automatisch verlängern",
           "notify_targets": "Benachrichtigen",
           "notify_time": "Uhrzeit der Benachrichtigung",
-          "notify_events": "Benachrichtigen bei"
+          "notify_events": "Benachrichtigen bei",
+          "notify_show_titles": "Titel in Benachrichtigungen zeigen"
         },
         "data_description": {
           "scan_hours": "Stunden zwischen zwei Kontoabfragen. Findus wird von der Bücherei nur wenige Male am Tag aktualisiert.",
@@ -61,7 +62,8 @@
           "auto_renew_categories": "Automatisches Verlängern auf diese Medienarten beschränken. Keine Auswahl = alle.",
           "notify_targets": "Notify-Dienste, an die gesendet wird, z. B. mobile_app_mein_handy. Keine Auswahl = keine Benachrichtigungen.",
           "notify_time": "Tägliche Uhrzeit für die Fristen-Übersicht.",
-          "notify_events": "Bald fällig und heute fällig kommen einmal je Medium, überfällig einmal täglich, Verlängerungen sofort, Ausweis-Ablauf 30 und 7 Tage vorher."
+          "notify_events": "Bald fällig und heute fällig kommen einmal je Medium, überfällig einmal täglich, Verlängerungen sofort, Ausweis-Ablauf 30 und 7 Tage vorher.",
+          "notify_show_titles": "Aus: nur die Anzahl, z. B. „Heute fällig: 2 Medien“. An: Titel stehen in der Nachricht, also auch auf dem Sperrbildschirm und beim Push- oder Messenger-Dienst."
         }
       }
     }
@@ -194,6 +196,12 @@
     },
     "notify_action": {
       "message": "Verlängern"
+    },
+    "notify_count_one": {
+      "message": "1 Medium"
+    },
+    "notify_count_other": {
+      "message": "{count} Medien"
     },
     "notify_weekdays": {
       "message": "Mo.,Di.,Mi.,Do.,Fr.,Sa.,So."

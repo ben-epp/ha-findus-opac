@@ -51,7 +51,8 @@
           "auto_renew_categories": "Auto-renew only",
           "notify_targets": "Notify",
           "notify_time": "Notification time",
-          "notify_events": "Notify about"
+          "notify_events": "Notify about",
+          "notify_show_titles": "Show titles in notifications"
         },
         "data_description": {
           "scan_hours": "Hours between account checks. Findus is only refreshed by the library a few times a day.",
@@ -61,7 +62,8 @@
           "auto_renew_categories": "Restrict auto-renew to these media types. Nothing selected = all types.",
           "notify_targets": "Notify services to send to, e.g. mobile_app_my_phone. Nothing selected = notifications off.",
           "notify_time": "Daily time for the due-date digest.",
-          "notify_events": "Due soon and due today are sent once per item, overdue once a day, renewals when they happen, card expiry 30 and 7 days ahead."
+          "notify_events": "Due soon and due today are sent once per item, overdue once a day, renewals when they happen, card expiry 30 and 7 days ahead.",
+          "notify_show_titles": "Off: only counts, e.g. \"Due today: 2 items\". On: titles appear in the message, also on the lock screen and with the push or messaging service."
         }
       }
     }
@@ -194,6 +196,12 @@
     },
     "notify_action": {
       "message": "Renew"
+    },
+    "notify_count_one": {
+      "message": "1 item"
+    },
+    "notify_count_other": {
+      "message": "{count} items"
     },
     "notify_weekdays": {
       "message": "Mon,Tue,Wed,Thu,Fri,Sat,Sun"

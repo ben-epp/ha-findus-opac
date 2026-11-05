@@ -35,6 +35,7 @@ from .const import (
     CONF_AUTO_RENEW_DAYS,
     CONF_CARD,
     CONF_NOTIFY_EVENTS,
+    CONF_NOTIFY_SHOW_TITLES,
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_TIME,
     CONF_DUE_SOON_DAYS,
@@ -161,6 +162,7 @@ class FindusOptionsFlow(OptionsFlow):
                     CONF_NOTIFY_TARGETS: list(user_input.get(CONF_NOTIFY_TARGETS, [])),
                     CONF_NOTIFY_TIME: str(user_input.get(CONF_NOTIFY_TIME, DEFAULT_NOTIFY_TIME)),
                     CONF_NOTIFY_EVENTS: list(user_input.get(CONF_NOTIFY_EVENTS, NOTIFY_EVENTS)),
+                    CONF_NOTIFY_SHOW_TITLES: bool(user_input.get(CONF_NOTIFY_SHOW_TITLES, False)),
                 }
             )
         opts = self.config_entry.options
@@ -222,6 +224,7 @@ class FindusOptionsFlow(OptionsFlow):
                 ): TimeSelector(),
                 vol.Optional(
                     CONF_NOTIFY_EVENTS,
+    CONF_NOTIFY_SHOW_TITLES,
                     default=list(opts.get(CONF_NOTIFY_EVENTS, NOTIFY_EVENTS)),
                 ): SelectSelector(
                     SelectSelectorConfig(
@@ -231,6 +234,9 @@ class FindusOptionsFlow(OptionsFlow):
                         translation_key="notify_events",
                     )
                 ),
+                vol.Optional(
+                    CONF_NOTIFY_SHOW_TITLES, default=opts.get(CONF_NOTIFY_SHOW_TITLES, False)
+                ): BooleanSelector(),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

@@ -145,6 +145,15 @@ So sieht das aus:
 
 ```text
 Bücherei: Lena
+Überfällig seit 2 Tagen: 1 Medium
+Heute fällig: 1 Medium
+Fällig am So., 8.11.: 1 Medium
+```
+
+Titel stehen nur in der Nachricht, wenn du **Titel in Benachrichtigungen zeigen** einschaltest:
+
+```text
+Bücherei: Lena
 Überfällig seit 2 Tagen: Wale & Delfine (Verlängerungen ausgeschöpft)
 Heute fällig: Der kleine Drache (verlängerbar)
 Fällig am So., 8.11.: Lieder zum Mitsingen (verlängerbar)
@@ -272,14 +281,24 @@ automation:
   müssen sie genauso funktionieren.
 - **Karte fehlt oder ist veraltet:** Home Assistant neu starten und die Seite ohne Cache
   neu laden (siehe [Dashboard-Karte](#dashboard-karte)).
-- **Fehler melden:** auf der Geräteseite **Diagnose herunterladen** (Zugangsdaten sind darin
-  geschwärzt) und mit einer kurzen Beschreibung als
+- **Fehler melden:** auf der Geräteseite **Diagnose herunterladen** (Zugangsdaten, Namen und
+  Medientitel sind nicht enthalten, der Name deiner Bücherei schon) und mit einer kurzen Beschreibung als
   [Issue](https://github.com/ben-epp/ha-findus-opac/issues) anlegen.
 
 ## Datenschutz
 
 - Ausweisnummer und Geburtsdatum/Passwort bleiben in deinem Home Assistant.
-- Abgefragt wird nur der Findus-Server deiner Bücherei, sonst nichts.
+- Home Assistant fragt nur den Findus-Server deiner Bücherei ab.
+- Dein Browser lädt zusätzlich Coverbilder von Findus-Servern (die Adresse kann die ISBN
+  enthalten) und Bilder aus Mitteilungen der Bücherei, die auch auf anderen Servern liegen
+  können. Beides lässt sich in der Karte abschalten.
+- Ausweisnummer und Geburtsdatum/Passwort liegen wie bei anderen Integrationen unverschlüsselt
+  im Ordner `.storage` und damit auch in unverschlüsselten Backups.
+- Alle Benutzer deines Home Assistant können die Ausleihen aller Ausweise sehen.
+- Mit eingeschalteten Titeln in Benachrichtigungen stehen diese auf dem Sperrbildschirm und
+  laufen über den jeweiligen Dienst (Google, Apple, Telegram, E-Mail).
+- Das Ereignis `findus_opac_renewal` enthält Titel und Kontonamen und landet in der Historie
+  von Home Assistant.
 
 ## Lizenz
 
