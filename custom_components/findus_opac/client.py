@@ -9,7 +9,7 @@ import html as htmllib
 import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from urllib.parse import urljoin
 
 GetFn = Callable[[str], Awaitable[str]]
@@ -121,6 +121,7 @@ class Account:
     form: dict[str, str] = field(default_factory=dict)
     card_valid_until: date | None = None
     announcement: Announcement | None = None
+    last_sync: datetime | None = None  # naive, library local time
 
     def loan(self, mednr: str) -> Loan | None:
         return next((l for l in self.loans if l.mednr == mednr), None)
@@ -222,6 +223,127 @@ def parse_announcement(page: str) -> Announcement | None:
     )
 
 
+WEEKDAYS = ("montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag")
+LAST_SYNC_RE = re.compile(
+    r"letztes Datenbankupdate:\s*(\d{1,2})\.(\d{1,2})\.(\d{4}),\s*(\d{1,2}):(\d{2})", re.I
+)
+HOURS_TABLE_RE = re.compile(r'<table[^>]*id="oeffnungszeiten".*?</table>', re.S | re.I)
+HOURS_NOTE_RE = re.compile(r"\s*(?:</ul>)?\s*<p>(.*?)</p>", re.S | re.I)
+HOURS_ROW_RE = re.compile(r"<tr.*?</tr>", re.S | re.I)
+HOURS_CELL_RE = re.compile(r"<td[^>]*>(.*?)</td>", re.S | re.I)
+HOURS_RANGE_RE = re.compile(r"(\d{1,2})[:.](\d{2})\s*[-–]\s*(\d{1,2})[:.](\d{2})")
+HOURS_CLOSED_RE = re.compile(r"geschlos+en", re.I)
+HOURS_FILLER_RE = re.compile(r"\b(?:uhr|unr|und|durchgehend)\b|[,;&/+]", re.I)
+HOURS_NOTE_MAX_CHARS = 500
+
+
+@dataclass(frozen=True)
+class DayHours:
+    intervals: tuple[tuple[time, time], ...] = ()
+    # Free text next to the times ("Jeden 1. Samstag im Monat"): we cannot say if it applies.
+    conditional: bool = False
+
+
+@dataclass(frozen=True)
+class OpeningHours:
+    """Regular weekly hours by weekday (0 = Monday). Holidays and closures are not included."""
+
+    days: dict[int, DayHours]
+    note: str = ""
+
+    def _day(self, d: date) -> DayHours:
+        return self.days.get(d.weekday(), DayHours())
+
+    def is_open(self, now: datetime) -> bool | None:
+        """None when the day's hours depend on free text."""
+        day = self._day(now.date())
+        if day.conditional:
+            return None
+        return any(start <= now.time() < end for start, end in day.intervals)
+
+    def closes_at(self, now: datetime) -> time | None:
+        return next((end for start, end in self._day(now.date()).intervals if start <= now.time() < end), None)
+
+    def next_open(self, now: datetime) -> datetime | None:
+        """Next certain opening after `now`; conditional days are skipped."""
+        for offset in range(8):
+            d = now.date() + timedelta(days=offset)
+            day = self._day(d)
+            if day.conditional:
+                continue
+            for start, _ in day.intervals:
+                opens = datetime.combine(d, start, tzinfo=now.tzinfo)
+                if opens > now:
+                    return opens
+        return None
+
+    def last_open_before(self, due: date) -> tuple[date, time] | None:
+        """(day, closing time) of the last regular opening on or before `due`.
+
+        None when a conditional day comes first: we would only be guessing.
+        """
+        for offset in range(8):
+            d = due - timedelta(days=offset)
+            day = self._day(d)
+            if day.conditional:
+                return None
+            if day.intervals:
+                return d, day.intervals[-1][1]
+        return None
+
+
+def _parse_day_cell(cell: str) -> tuple[list[tuple[time, time]], bool]:
+    """Intervals in one table cell, and whether free text makes them conditional."""
+    if not cell or HOURS_CLOSED_RE.fullmatch(cell):
+        return [], False
+    intervals = []
+    for m in HOURS_RANGE_RE.finditer(cell):
+        try:
+            intervals.append((time(int(m[1]), int(m[2])), time(int(m[3]), int(m[4]))))
+        except ValueError:
+            return [], True
+    rest = HOURS_FILLER_RE.sub("", HOURS_RANGE_RE.sub("", cell)).strip()
+    return intervals, bool(rest)
+
+
+def parse_opening_hours(page: str) -> OpeningHours | None:
+    """Weekly table of the opening hours page; None if it has no usable times."""
+    table = HOURS_TABLE_RE.search(page)
+    if not table:
+        return None
+    collected: dict[int, list[tuple[time, time]]] = {}
+    conditional: set[int] = set()
+    for row in HOURS_ROW_RE.findall(table[0]):
+        cells = [_text(c) for c in HOURS_CELL_RE.findall(row)]
+        if not cells or cells[0].lower() not in WEEKDAYS:
+            continue
+        weekday = WEEKDAYS.index(cells[0].lower())
+        for cell in cells[1:]:
+            intervals, is_conditional = _parse_day_cell(cell)
+            collected.setdefault(weekday, []).extend(intervals)
+            if is_conditional:
+                conditional.add(weekday)
+    if not any(collected.values()):
+        return None
+    note = HOURS_NOTE_RE.match(page, table.end())
+    return OpeningHours(
+        days={
+            w: DayHours(tuple(sorted(iv)), w in conditional) for w, iv in collected.items()
+        },
+        note=_text(note[1])[:HOURS_NOTE_MAX_CHARS] if note else "",
+    )
+
+
+def parse_last_sync(page: str) -> datetime | None:
+    """When the library last uploaded its data, from the page footer."""
+    if not (m := LAST_SYNC_RE.search(page)):
+        return None
+    try:
+        return datetime(int(m[3]), int(m[2]), int(m[1]), int(m[4]), int(m[5]))
+    except ValueError:
+        return None
+
+
 def parse_card_valid_until(page: str) -> date | None:
     """Expiry date of the library card from the account banner, if shown."""
     m = CARD_RE.search(htmllib.unescape(page))
@@ -305,6 +427,13 @@ class FindusClient:
     def login_url(self) -> str:
         return f"{self.url}?customer={self.subdomain}&leserkonto=1&submit=1"
 
+    @property
+    def hours_url(self) -> str:
+        return f"{self.url}?customer={self.subdomain}&zeige_oeffnungszeiten=1&submit=1"
+
+    async def fetch_opening_hours(self) -> OpeningHours | None:
+        return parse_opening_hours(await self._get(self.hours_url))
+
     async def fetch(self) -> Account:
         """Log in and return the account. Each call is a fresh login; Findus is stateless."""
         login_page = await self._get(self.login_url)
@@ -318,7 +447,9 @@ class FindusClient:
                 "gebdat": self._secret,
             }
         )
-        account = parse_account(await self._post(self.url, form))
+        page = await self._post(self.url, form)
+        account = parse_account(page)
+        account.last_sync = parse_last_sync(page) or parse_last_sync(login_page)
         # The notice is on every page; prefer the account page's, else the login page's.
         self._announce(account, parse_announcement(login_page))
         return account
@@ -365,4 +496,5 @@ class FindusClient:
                 )
             )
         self._announce(after, before.announcement)
+        after.last_sync = after.last_sync or before.last_sync
         return after, outcomes

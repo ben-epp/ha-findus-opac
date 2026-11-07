@@ -20,6 +20,10 @@ Wunsch automatisch.
 - **Gründe statt Rätsel:** warum etwas nicht verlängert werden kann (z. B. „Verlängerungen
   ausgeschöpft“ oder „vorbestellt“).
 - **Mitteilungen der Bücherei** wie Urlaubsschließungen oder Veranstaltungen.
+- **Öffnungszeiten:** ob gerade offen ist, und eine Warnung, wenn die Bücherei am Rückgabetag
+  geschlossen hat.
+- **Kalender:** Rückgabetermine im Kalender von Home Assistant.
+- **Datenstand:** wann die Bücherei zuletzt ihre Daten aktualisiert hat.
 - **Ausweis-Ablauf:** Hinweis 30 und 7 Tage, bevor der Bibliotheksausweis abläuft.
 - **Mehrere Ausweise**, z. B. einer pro Familienmitglied.
 
@@ -98,6 +102,8 @@ Was die Karte zeigt:
 - „verlängerbar“ mit Verlängern-Knopf pro Medium, oder den Grund, warum nicht
 - einen Knopf zum Verlängern aller verlängerbaren Medien und einen zum sofortigen Abgleich
 - die Gültigkeit des Ausweises und die aktuelle Mitteilung der Bücherei (aufklappbar)
+- ob die Bücherei gerade geöffnet hat, mit allen Zeiten zum Aufklappen
+- den Datenstand der Bücherei, orange, wenn er älter als 4 Tage ist
 
 <details>
 <summary>Einstellungen der Karte (YAML)</summary>
@@ -110,6 +116,8 @@ show_renew: true            # Verlängern-Knöpfe
 show_covers: true           # Coverbilder
 show_card_expiry: true      # Gültigkeit des Ausweises
 show_announcement: true     # Mitteilung der Bücherei
+show_hours: true            # Öffnungszeiten
+show_last_sync: true        # Datenstand der Bücherei
 max_items: 0                # höchstens so viele Medien; 0 = alle
 warn_days: 3                # orange ab so vielen Tagen vor der Rückgabe
 group_by: due               # due (nach Datum) | category (nach Medienart) | none
@@ -139,6 +147,7 @@ gibt:
 | Heute fällig | am Rückgabetag | einmal pro Medium |
 | Überfällig | nach dem Rückgabetag | täglich, bis es zurück ist |
 | Verlängerung | direkt nach jeder Verlängerung | jedes Mal |
+| Letzte Chance | am letzten Öffnungstag vor einem geschlossenen Rückgabetag, nur wenn das Medium nicht verlängerbar ist | einmal pro Medium |
 | Ausweis läuft ab | 30 und 7 Tage vorher | je einmal |
 
 So sieht das aus:
@@ -161,6 +170,9 @@ Fällig am So., 8.11.: Lieder zum Mitsingen (verlängerbar)
 
 In der Home-Assistant-App (Android und iOS) hat die Nachricht einen Knopf **„Verlängern“**,
 sobald etwas verlängerbar ist. Andere Dienste wie E-Mail oder Telegram bekommen nur den Text.
+
+Die letzte Chance rechnet mit den regulären Öffnungszeiten. An Feiertagen und bei Schließungen
+können sie abweichen, darauf weist die Nachricht auch hin.
 
 ## Automatisch verlängern
 
@@ -192,6 +204,13 @@ Rückgabedatum. Wer früh verlängert, verschenkt also Leihzeit – kurz vorher 
 - **Mitteilungen der Bücherei** sind freier Text. Ob es um eine Schließung geht, errät die
   Integration anhand von Wörtern wie „geschlossen“ oder „Urlaub“ – das klappt meistens, aber
   nicht immer. Lange Mitteilungen werden gekürzt, der Link führt zur ganzen Mitteilung.
+- **Öffnungszeiten** sind die regulären Zeiten von der Seite deiner Bücherei, wie bei einem
+  Kartendienst: An Feiertagen und bei Schließungen können sie abweichen, „Jetzt geöffnet“ weiß
+  davon nichts. Steht bei einem Tag ein Zusatz wie „jeden 1. Samstag im Monat“, zeigt der Sensor
+  an diesem Tag „unbekannt“, und die letzte Chance wird dafür nicht berechnet. Nicht jede
+  Bücherei trägt Zeiten ein, dann ist der Sensor nicht verfügbar.
+- **Kalender:** Der Titel eines Termins nennt nur die Anzahl, die Medientitel stehen in der
+  Beschreibung. So landen sie nicht in der Historie von Home Assistant.
 - **Coverbilder** lädt dein Browser direkt von Findus; deine Zugangsdaten werden dabei nicht
   übertragen. Wer das nicht möchte, schaltet die Cover in der Karte aus.
 - **Sprachen:** Deutsch und Englisch, je nach Sprache von Home Assistant. Titel und Hinweise
@@ -210,6 +229,9 @@ Kontonamen, z. B. `sensor.lena_ausleihen` – die genauen IDs stehen auf der Ger
 | Heute fällig / Bald fällig / Überfällig / Verlängerbar | Anzahl der jeweiligen Medien |
 | Ausweis gültig bis | Ablaufdatum des Bibliotheksausweises |
 | Mitteilung der Bibliothek | Titel der aktuellen Mitteilung, leer wenn keine |
+| Datenstand der Bücherei | Wann die Bücherei zuletzt ihre Daten aktualisiert hat |
+| Jetzt geöffnet (reguläre Zeiten) | An/Aus, mit den Zeiten als Attribute `hours`, `closes_at`, `next_open`, `note` |
+| Rückgabetermine | Kalender mit einem ganztägigen Termin pro Rückgabetag |
 | Überfällige Medien / Verlängerung möglich / Ausweis läuft bald ab | An/Aus – praktisch für Automationen |
 | Alle verlängern | Knopf: alle verlängerbaren Medien verlängern |
 | Jetzt abgleichen | Knopf: das Leserkonto sofort neu einlesen |

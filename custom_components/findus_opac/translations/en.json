@@ -62,7 +62,7 @@
           "auto_renew_categories": "Restrict auto-renew to these media types. Nothing selected = all types.",
           "notify_targets": "Notify services to send to, e.g. mobile_app_my_phone. Nothing selected = notifications off.",
           "notify_time": "Daily time for the due-date digest.",
-          "notify_events": "Due soon and due today are sent once per item, overdue once a day, renewals when they happen, card expiry 30 and 7 days ahead.",
+          "notify_events": "Due soon and due today are sent once per item, overdue once a day, renewals when they happen, card expiry 30 and 7 days ahead. Last chance only for items that cannot be renewed.",
           "notify_show_titles": "Off: only counts, e.g. \"Due today: 2 items\". On: titles appear in the message, also on the lock screen and with the push or messaging service."
         }
       }
@@ -111,6 +111,9 @@
       },
       "announcement": {
         "name": "Library announcement"
+      },
+      "last_sync": {
+        "name": "Library data from"
       }
     },
     "binary_sensor": {
@@ -122,6 +125,9 @@
       },
       "card_expires_soon": {
         "name": "Library card expires soon"
+      },
+      "open_now": {
+        "name": "Open now (regular hours)"
       }
     },
     "button": {
@@ -130,6 +136,11 @@
       },
       "sync": {
         "name": "Sync now"
+      }
+    },
+    "calendar": {
+      "due_dates": {
+        "name": "Due dates"
       }
     }
   },
@@ -172,6 +183,18 @@
     },
     "notify_due_on": {
       "message": "Due {date}: {items}"
+    },
+    "notify_due_on_closed": {
+      "message": "Due {date}, closed that day – last chance {last} until {time}: {items}"
+    },
+    "notify_last_chance": {
+      "message": "Last chance today until {time}: {items} (closed on the due date)"
+    },
+    "notify_hours_hint": {
+      "message": "Regular opening hours; they can differ on holidays."
+    },
+    "notify_calendar_due": {
+      "message": "Library return: {items}"
     },
     "notify_card": {
       "message": "Library card valid until {date} – please have it renewed"
@@ -252,7 +275,8 @@
         "due_today": "Due today",
         "overdue": "Overdue (daily)",
         "renewed": "Renewal",
-        "card_expiry": "Library card expires"
+        "card_expiry": "Library card expires",
+        "last_chance": "Last chance before a closed due date"
       }
     }
   }

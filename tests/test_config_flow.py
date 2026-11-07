@@ -160,7 +160,7 @@ async def test_options_flow_reloads(hass, opac, loaded_entry):
         CONF_AUTO_RENEW_CATEGORIES: [],
         CONF_NOTIFY_TARGETS: [],
         CONF_NOTIFY_TIME: "08:00:00",
-        CONF_NOTIFY_EVENTS: ["due_soon", "due_today", "overdue", "renewed", "card_expiry"],
+        CONF_NOTIFY_EVENTS: ["due_soon", "due_today", "overdue", "last_chance", "renewed", "card_expiry"],
         "notify_show_titles": False,
     }
     coordinator = loaded_entry.runtime_data

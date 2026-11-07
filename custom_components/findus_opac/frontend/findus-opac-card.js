@@ -2,7 +2,7 @@
  * Findus OPAC card: loan list with due dates and a renew button.
  * Served and auto-registered by the findus_opac integration; no build step, no dependencies.
  */
-const CARD_VERSION = "0.6.0";
+const CARD_VERSION = "0.7.0";
 const DOMAIN = "findus_opac";
 
 const ICONS = {
@@ -13,8 +13,21 @@ const ICONS = {
   game: "mdi:gamepad-variant",
 };
 
+// Weekends and short breaks are normal; beyond this the card flags the data as old.
+const SYNC_STALE_DAYS = 4;
+
 const TEXT = {
   de: {
+    syncAt: (d) => `Datenstand der Bücherei: ${d}`,
+    hoursOpen: (t) => `Geöffnet bis ${t}`,
+    hoursClosed: "Geschlossen",
+    hoursOpens: (d) => `Geschlossen, öffnet ${d}`,
+    hoursUnsure: "Heute nur unter Vorbehalt geöffnet",
+    hoursHint: "Reguläre Öffnungszeiten, an Feiertagen können sie abweichen.",
+    hoursMore: "Alle Zeiten",
+    hoursLess: "Weniger",
+    hoursDayClosed: "geschlossen",
+    hoursCond: "siehe Bücherei",
     loans: "Ausleihen",
     none: "Keine Ausleihen – alles zurückgegeben.",
     overdue: (n) => `${n} überfällig`,
@@ -49,6 +62,16 @@ const TEXT = {
     cardExpired: (d) => `Ausweis abgelaufen seit ${d}`,
   },
   en: {
+    syncAt: (d) => `Library data from ${d}`,
+    hoursOpen: (t) => `Open until ${t}`,
+    hoursClosed: "Closed",
+    hoursOpens: (d) => `Closed, opens ${d}`,
+    hoursUnsure: "Open today only under certain conditions",
+    hoursHint: "Regular opening hours; they can differ on holidays.",
+    hoursMore: "All hours",
+    hoursLess: "Less",
+    hoursDayClosed: "closed",
+    hoursCond: "ask the library",
     loans: "Loans",
     none: "No loans – everything returned.",
     overdue: (n) => `${n} overdue`,
@@ -92,6 +115,8 @@ const LABELS = {
     show_covers: "Cover anzeigen",
     show_card_expiry: "Ausweis-Gültigkeit anzeigen",
     show_announcement: "Mitteilung der Bibliothek anzeigen",
+    show_hours: "Öffnungszeiten anzeigen",
+    show_last_sync: "Datenstand der Bücherei anzeigen",
     max_items: "Höchstens anzeigen (0 = alle)",
     warn_days: "Warnen ab Tagen vor Rückgabe",
     group_by: "Gruppieren (aufklappbar)",
@@ -104,6 +129,8 @@ const LABELS = {
     show_covers: "Show covers",
     show_card_expiry: "Show library card expiry",
     show_announcement: "Show library announcement",
+    show_hours: "Show opening hours",
+    show_last_sync: "Show library data date",
     max_items: "Maximum items (0 = all)",
     warn_days: "Warn days before due",
     group_by: "Group (collapsible)",
@@ -116,6 +143,8 @@ const DEFAULTS = {
   show_covers: true,
   show_card_expiry: true,
   show_announcement: true,
+  show_hours: true,
+  show_last_sync: true,
   max_items: 0,
   warn_days: 3,
   group_by: "due",
@@ -192,13 +221,17 @@ class FindusOpacCard extends HTMLElement {
     const cardState = cardSensor ? hass.states[cardSensor] : undefined;
     const noticeId = deviceId ? findEntity(hass, deviceId, "sensor", "announcement") : undefined;
     const notice = noticeId ? hass.states[noticeId] : undefined;
+    const syncSensor = deviceId ? findEntity(hass, deviceId, "sensor", "last_sync") : undefined;
+    const syncState = syncSensor ? hass.states[syncSensor] : undefined;
+    const openSensor = deviceId ? findEntity(hass, deviceId, "binary_sensor", "open_now") : undefined;
+    const openState = openSensor ? hass.states[openSensor] : undefined;
     const device = deviceId ? hass.devices?.[deviceId] : undefined;
     const entryId = device?.primary_config_entry || device?.config_entries?.[0];
 
     // Re-render only when something visible changed; hass updates arrive constantly.
     const key = JSON.stringify([
       st?.last_updated, st?.state, renewId, syncId, entryId, cardState?.state,
-      notice?.last_updated, this._noticeOpen, this._busy, this._busyItem, this._syncing, this._config, lang(hass), [...(this._open || [])],
+      notice?.last_updated, this._noticeOpen, syncState?.state, openState?.last_updated, this._hoursOpen, this._busy, this._busyItem, this._syncing, this._config, lang(hass), [...(this._open || [])],
     ]);
     if (key === this._lastKey) return;
     this._lastKey = key;
@@ -320,6 +353,34 @@ class FindusOpacCard extends HTMLElement {
         days < 0 ? t.cardExpired(d) : t.cardValid(d),
       )}</div>`;
     }
+    let syncLine = "";
+    const synced = this._config.show_last_sync ? new Date(syncState?.state || "") : null;
+    if (synced && !isNaN(synced)) {
+      const stale = Date.now() - synced.getTime() > SYNC_STALE_DAYS * 86400000;
+      syncLine = `<div class="cardline ${stale ? "soon" : "ok"}"><ha-icon icon="mdi:database-clock-outline"></ha-icon>${esc(
+        t.syncAt(synced.toLocaleString(locale, { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })),
+      )}</div>`;
+    }
+    let hoursBlock = "";
+    const ha = openState?.attributes;
+    if (this._config.show_hours && ha?.hours && openState.state !== "unavailable") {
+      const opens = ha.next_open ? new Date(ha.next_open) : null;
+      const opensText = opens && opens.toLocaleString(locale, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+      const status = openState.state === "on" && ha.closes_at ? t.hoursOpen(ha.closes_at)
+        : openState.state === "off" ? (opensText ? t.hoursOpens(opensText) : t.hoursClosed)
+        : t.hoursUnsure;
+      const open = !!this._hoursOpen;
+      const dayName = (i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" }); // 2024-01-01 is a Monday
+      const week = Object.entries(ha.hours).map(([day, times], i) => `<tr><td>${esc(dayName(i))}</td><td>${esc(
+        (ha.conditional_days || []).includes(day) ? [...times, t.hoursCond].join(", ") : times.join(", ") || t.hoursDayClosed,
+      )}</td></tr>`).join("");
+      hoursBlock = `<div class="hours">
+        <div class="hstatus ${openState.state === "on" ? "isopen" : ""}"><ha-icon icon="mdi:clock-outline"></ha-icon>${esc(status)}
+          <button id="hours-toggle" class="link">${esc(open ? t.hoursLess : t.hoursMore)}</button></div>
+        ${open ? `<table class="hweek">${week}</table>${ha.note ? `<div class="hint">${esc(ha.note)}</div>` : ""}` : ""}
+        <div class="hint">${esc(t.hoursHint)}</div>
+      </div>`;
+    }
     let noticeBlock = "";
     const na = notice?.attributes;
     if (this._config.show_announcement && notice && !["unknown", "unavailable"].includes(notice.state) && na) {
@@ -338,7 +399,7 @@ class FindusOpacCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <ha-card>
         <div class="header">
-          <div class="titlebox"><div class="title">${esc(title)}</div>${cardLine}</div>
+          <div class="titlebox"><div class="title">${esc(title)}</div>${cardLine}${syncLine}</div>
           <div class="badges">
             <span class="badge">${items.length} ${esc(t.loans)}</span>
             ${overdue ? `<span class="badge bad">${esc(t.overdue(overdue))}</span>` : ""}
@@ -350,6 +411,7 @@ class FindusOpacCard extends HTMLElement {
             }
           </div>
         </div>
+        ${hoursBlock}
         ${noticeBlock}
         <div class="list" style="${maxH > 0 ? `max-height:${maxH}px;overflow-y:auto` : ""}">
           ${items.length ? rows : `<div class="empty">${esc(t.none)}</div>`}
@@ -375,6 +437,10 @@ class FindusOpacCard extends HTMLElement {
         this._render();
       }),
     );
+    this.shadowRoot.getElementById("hours-toggle")?.addEventListener("click", () => {
+      this._hoursOpen = !this._hoursOpen;
+      this._render();
+    });
     this.shadowRoot.getElementById("notice-toggle")?.addEventListener("click", () => {
       this._noticeOpen = !this._noticeOpen;
       this._render();
@@ -458,6 +524,14 @@ const STYLE = `<style>
   .cardline ha-icon { --mdc-icon-size: 16px; }
   .cardline.soon { color: var(--warning-color); }
   .cardline.overdue { color: var(--error-color); font-weight: 500; }
+  .hours { margin: 8px 0; font-size: .9em; }
+  .hstatus { display: flex; align-items: center; gap: 4px; }
+  .hstatus ha-icon { --mdc-icon-size: 16px; }
+  .hstatus.isopen { color: var(--success-color, #43a047); }
+  .hstatus .link { margin-left: auto; }
+  .hweek { border-collapse: collapse; margin-top: 4px; }
+  .hweek td { padding: 1px 12px 1px 0; }
+  .hint { margin-top: 2px; font-size: .85em; color: var(--secondary-text-color); }
   .notice { margin: 8px 0; padding: 8px 12px; border-radius: 8px; border-left: 4px solid var(--info-color, #039be5);
             background: var(--secondary-background-color); }
   .notice.closure { border-left-color: var(--warning-color, #ffa600); }
@@ -548,6 +622,8 @@ class FindusOpacCardEditor extends HTMLElement {
       { name: "show_covers", selector: { boolean: {} } },
       { name: "show_card_expiry", selector: { boolean: {} } },
       { name: "show_announcement", selector: { boolean: {} } },
+      { name: "show_hours", selector: { boolean: {} } },
+      { name: "show_last_sync", selector: { boolean: {} } },
       { name: "max_items", selector: { number: { min: 0, max: 50, mode: "box" } } },
       { name: "warn_days", selector: { number: { min: 0, max: 14, mode: "box" } } },
       {

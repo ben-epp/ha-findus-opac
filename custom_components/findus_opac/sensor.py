@@ -14,7 +14,9 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant
+from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .client import Loan
 from .const import CATEGORIES
@@ -148,6 +150,15 @@ SENSORS: tuple[FindusSensorEntityDescription, ...] = (
             if c.data.card_valid_until
             else None
         },
+    ),
+    FindusSensorEntityDescription(
+        key="last_sync",
+        translation_key="last_sync",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.data.last_sync.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+        if c.data.last_sync
+        else None,
     ),
     FindusSensorEntityDescription(
         key="announcement",
