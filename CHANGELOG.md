@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.7.0 – 2026-11-05
+## 0.7.0 – 2026-11-07
 
 - **Datenstand der Bücherei:** neuer Sensor und Anzeige auf der Karte, orange ab 4 Tagen.
 - **Kalender:** Rückgabetermine als ganztägige Termine. Der Titel eines Termins nennt nur die
