@@ -17,7 +17,7 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .client import Account, AuthError, FindusClient, FindusError, RenewOutcome
+from .client import Account, AuthError, FindusClient, FindusError, OpeningHours, RenewOutcome
 from .const import (
     CONF_ACCOUNT_NAME,
     CONF_AUTO_RENEW,
@@ -84,6 +84,9 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
         self._recheck: Callable[[], None] | None = None
         # mednr -> due date already auto-renewed; a pending request is not resent every poll.
         self._auto_attempted: dict[str, date] = {}
+        # Regular opening hours; they rarely change, so fetched once a day.
+        self.hours: OpeningHours | None = None
+        self._hours_day: date | None = None
         entry.async_on_unload(self._cancel_recheck)
 
     @property
@@ -100,7 +103,19 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
             raise ConfigEntryAuthFailed(str(err)) from err
         except (FindusError, aiohttp.ClientError, TimeoutError) as err:
             raise UpdateFailed(str(err)) from err
+        await self._async_update_hours()
         return await self._async_auto_renew(account)
+
+    async def _async_update_hours(self) -> None:
+        """Never fails the poll: the account matters more; retried on the next one."""
+        if self._hours_day == self.today():
+            return
+        try:
+            self.hours = await self.client.fetch_opening_hours()
+        except (aiohttp.ClientError, TimeoutError) as err:
+            _LOGGER.debug("Could not fetch opening hours: %s", err)
+            return
+        self._hours_day = self.today()
 
     def auto_renew_targets(self, account: Account) -> list[str]:
         """Renewable loans inside the auto-renew window that were not tried for this due date."""

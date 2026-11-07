@@ -15,7 +15,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import dt as dt_util
 
-from .client import Loan
+from .client import Loan, OpeningHours
 from .const import (
     CONF_NOTIFY_EVENTS,
     CONF_NOTIFY_SHOW_TITLES,
@@ -74,14 +74,14 @@ def _long_date(t: Texts, d: date) -> str:
     return _format_date(t, "date_long", d)
 
 
-def _count(t: Texts, n: int) -> str:
+def count_text(t: Texts, n: int) -> str:
     """'1 item' / '3 items': stands in for titles when they should not be shown."""
     return t["count_one"] if n == 1 else t["count_other"].format(count=n)
 
 
 def _items(t: Texts, loans: Iterable[Loan], show_titles: bool = True) -> str:
     if not show_titles:
-        return _count(t, len(list(loans)))
+        return count_text(t, len(list(loans)))
 
     def name(l: Loan) -> str:
         if l.renewable:
@@ -102,9 +102,15 @@ def build_message(
     card_until: date | None,
     today: date,
     show_titles: bool = True,
+    hours: OpeningHours | None = None,
 ) -> tuple[str, str]:
-    """(title, message) for one daily run. `loans_by_kind`: overdue / due_today / due_soon."""
+    """(title, message) for one daily run.
+
+    `loans_by_kind`: overdue / due_today / last_chance / due_soon. Hours are regular ones, so
+    any line built from them is followed by a hint that they can deviate.
+    """
     lines: list[str] = []
+    used_hours = False
 
     by_days: dict[int, list[Loan]] = {}
     for l in loans_by_kind.get("overdue", []):
@@ -116,16 +122,36 @@ def build_message(
     if today_loans := loans_by_kind.get("due_today"):
         lines.append(t["due_today"].format(items=_items(t, today_loans, show_titles)))
 
+    if hours and (last_chance := loans_by_kind.get("last_chance")):
+        last = hours.last_open_before(last_chance[0].due)
+        if last:
+            lines.append(
+                t["last_chance"].format(time=f"{last[1]:%H:%M}", items=_items(t, last_chance, show_titles))
+            )
+            used_hours = True
+
     by_due: dict[date, list[Loan]] = {}
     for l in loans_by_kind.get("due_soon", []):
         by_due.setdefault(l.due, []).append(l)
     for d in sorted(by_due):
-        lines.append(t["due_on"].format(date=_short_date(t, d), items=_items(t, by_due[d], show_titles)))
+        items = _items(t, by_due[d], show_titles)
+        last = hours.last_open_before(d) if hours else None
+        if last and today <= last[0] < d:  # closed on the due date
+            lines.append(
+                t["due_on_closed"].format(
+                    date=_short_date(t, d), last=_short_date(t, last[0]), time=f"{last[1]:%H:%M}", items=items
+                )
+            )
+            used_hours = True
+        else:
+            lines.append(t["due_on"].format(date=_short_date(t, d), items=items))
 
     if card_until is not None:
         key = "card_expired" if card_until < today else "card"
         lines.append(t[key].format(date=_long_date(t, card_until)))
 
+    if used_hours:
+        lines.append(t["hours_hint"])
     return t["title"].format(account=account_name), "\n".join(lines)
 
 
@@ -135,7 +161,7 @@ def build_renewal_message(
     """(title, message) for a findus_opac_renewal event payload."""
 
     def names(titles: list[str]) -> str:
-        return ", ".join(titles) if show_titles else _count(t, len(titles))
+        return ", ".join(titles) if show_titles else count_text(t, len(titles))
 
     lines: list[str] = []
     requested = [i["title"] for i in items if i.get("status") == "requested"]
@@ -229,7 +255,7 @@ class FindusNotifier:
             del sent[key]
         sent[LAST_RUN_KEY] = today.isoformat()
 
-        kinds: dict[str, list[Loan]] = {"overdue": [], "due_today": [], "due_soon": []}
+        kinds: dict[str, list[Loan]] = {"overdue": [], "due_today": [], "last_chance": [], "due_soon": []}
         new_keys: list[str] = []
         for loan in account.loans:
             left = loan.days_left(today)
@@ -240,10 +266,17 @@ class FindusNotifier:
             elif left <= self.coordinator.due_soon_days:
                 kind, key = "due_soon", f"due_soon:{loan.mednr}:{loan.due}"
             else:
-                continue
+                kind, key = "", ""
             if kind in self.events and key not in sent:
                 kinds[kind].append(loan)
                 new_keys.append(key)
+            if self._is_last_chance(loan, today):
+                key = f"last_chance:{loan.mednr}:{loan.due}"
+                if key not in sent:
+                    new_keys.append(key)
+                    # Already listed as due soon: that line names the last opening too.
+                    if loan not in kinds["due_soon"]:
+                        kinds["last_chance"].append(loan)
 
         card_until = None
         until = account.card_valid_until
@@ -259,13 +292,27 @@ class FindusNotifier:
             return
         texts = await self._async_texts()
         title, message = build_message(
-            texts, self.coordinator.account_name, kinds, card_until, today, self.show_titles
+            texts, self.coordinator.account_name, kinds, card_until, today, self.show_titles, self.coordinator.hours
         )
         renewable = any(l.renewable for group in kinds.values() for l in group)
         await self._async_send(title, message, action_title=texts["action"] if renewable else None)
         for key in new_keys:
             sent[key] = today.isoformat()
         await self._store.async_save(sent)
+
+    def _is_last_chance(self, loan: Loan, today: date) -> bool:
+        """Today is the last regular opening before a closed due date, and it has to come back."""
+        hours = self.coordinator.hours
+        if (
+            "last_chance" not in self.events
+            or hours is None
+            or loan.renewable
+            or loan.renew_requested
+            or loan.due <= today
+        ):
+            return False
+        last = hours.last_open_before(loan.due)
+        return last is not None and last[0] == today and dt_util.now().time() < last[1]
 
     async def _async_send(self, title: str, message: str, action_title: str | None = None) -> None:
         for target in self.targets:

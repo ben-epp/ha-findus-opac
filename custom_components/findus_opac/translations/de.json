@@ -62,7 +62,7 @@
           "auto_renew_categories": "Automatisches Verlängern auf diese Medienarten beschränken. Keine Auswahl = alle.",
           "notify_targets": "Notify-Dienste, an die gesendet wird, z. B. mobile_app_mein_handy. Keine Auswahl = keine Benachrichtigungen.",
           "notify_time": "Tägliche Uhrzeit für die Fristen-Übersicht.",
-          "notify_events": "Bald fällig und heute fällig kommen einmal je Medium, überfällig einmal täglich, Verlängerungen sofort, Ausweis-Ablauf 30 und 7 Tage vorher.",
+          "notify_events": "Bald fällig und heute fällig kommen einmal je Medium, überfällig einmal täglich, Verlängerungen sofort, Ausweis-Ablauf 30 und 7 Tage vorher. Letzte Chance nur für Medien, die sich nicht verlängern lassen.",
           "notify_show_titles": "Aus: nur die Anzahl, z. B. „Heute fällig: 2 Medien“. An: Titel stehen in der Nachricht, also auch auf dem Sperrbildschirm und beim Push- oder Messenger-Dienst."
         }
       }
@@ -111,6 +111,9 @@
       },
       "announcement": {
         "name": "Mitteilung der Bibliothek"
+      },
+      "last_sync": {
+        "name": "Datenstand der Bücherei"
       }
     },
     "binary_sensor": {
@@ -122,6 +125,9 @@
       },
       "card_expires_soon": {
         "name": "Ausweis läuft bald ab"
+      },
+      "open_now": {
+        "name": "Jetzt geöffnet (reguläre Zeiten)"
       }
     },
     "button": {
@@ -130,6 +136,11 @@
       },
       "sync": {
         "name": "Jetzt abgleichen"
+      }
+    },
+    "calendar": {
+      "due_dates": {
+        "name": "Rückgabetermine"
       }
     }
   },
@@ -172,6 +183,18 @@
     },
     "notify_due_on": {
       "message": "Fällig am {date}: {items}"
+    },
+    "notify_due_on_closed": {
+      "message": "Fällig am {date}, da geschlossen – letzte Chance {last} bis {time}: {items}"
+    },
+    "notify_last_chance": {
+      "message": "Letzte Chance heute bis {time}: {items} (am Rückgabetag geschlossen)"
+    },
+    "notify_hours_hint": {
+      "message": "Reguläre Öffnungszeiten, an Feiertagen können sie abweichen."
+    },
+    "notify_calendar_due": {
+      "message": "Bücherei-Rückgabe: {items}"
     },
     "notify_card": {
       "message": "Ausweis gültig bis {date} – bitte verlängern lassen"
@@ -252,7 +275,8 @@
         "due_today": "Heute fällig",
         "overdue": "Überfällig (täglich)",
         "renewed": "Verlängerung",
-        "card_expiry": "Ausweis läuft ab"
+        "card_expiry": "Ausweis läuft ab",
+        "last_chance": "Letzte Chance vor geschlossenem Rückgabetag"
       }
     }
   }

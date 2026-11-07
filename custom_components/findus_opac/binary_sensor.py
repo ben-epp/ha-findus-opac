@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.binary_sensor import (
@@ -10,14 +11,18 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .const import CARD_EXPIRY_WARN_DAYS
 from .coordinator import FindusConfigEntry, FindusCoordinator
 from .entity import FindusEntity, loan_items
 
 PARALLEL_UPDATES = 0
+
+WEEKDAY_KEYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -74,7 +79,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(FindusBinarySensor(coordinator, d) for d in BINARY_SENSORS)
+    async_add_entities(
+        [*(FindusBinarySensor(coordinator, d) for d in BINARY_SENSORS), FindusOpenNow(coordinator)]
+    )
 
 
 class FindusBinarySensor(FindusEntity, BinarySensorEntity):
@@ -94,3 +101,51 @@ class FindusBinarySensor(FindusEntity, BinarySensorEntity):
     def extra_state_attributes(self) -> dict[str, Any] | None:
         fn = self.entity_description.attrs_fn
         return fn(self.coordinator) if fn else None
+
+
+class FindusOpenNow(FindusEntity, BinarySensorEntity):
+    """Open according to the regular weekly hours; holidays and closures are not known."""
+
+    _attr_device_class = BinarySensorDeviceClass.OPENING
+
+    def __init__(self, coordinator: FindusCoordinator) -> None:
+        super().__init__(coordinator, "open_now")
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+
+        @callback
+        def _tick(_now: datetime) -> None:  # polling is far too rare to catch opening times
+            self.async_write_ha_state()
+
+        self.async_on_remove(async_track_time_change(self.hass, _tick, second=0))
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.coordinator.hours is not None
+
+    @property
+    def is_on(self) -> bool | None:
+        hours = self.coordinator.hours
+        return hours.is_open(dt_util.now()) if hours else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        hours = self.coordinator.hours
+        if hours is None:
+            return None
+        now = dt_util.now()
+        closes = hours.closes_at(now)
+        opens = hours.next_open(now)
+        return {
+            "hours": {
+                name: [f"{a:%H:%M}-{b:%H:%M}" for a, b in hours.days[i].intervals]
+                if i in hours.days
+                else []
+                for i, name in enumerate(WEEKDAY_KEYS)
+            },
+            "conditional_days": [n for i, n in enumerate(WEEKDAY_KEYS) if i in hours.days and hours.days[i].conditional],
+            "closes_at": f"{closes:%H:%M}" if closes else None,
+            "next_open": opens.isoformat() if opens else None,
+            "note": hours.note,
+        }

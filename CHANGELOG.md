@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.0 – 2026-11-05
+
+- **Datenstand der Bücherei:** neuer Sensor und Anzeige auf der Karte, orange ab 4 Tagen.
+- **Kalender:** Rückgabetermine als ganztägige Termine. Der Titel eines Termins nennt nur die
+  Anzahl, die Medientitel stehen in der Beschreibung.
+- **Öffnungszeiten:** neuer Sensor „Jetzt geöffnet (reguläre Zeiten)“ und Anzeige auf der
+  Karte, mit dem Hinweis, dass sie an Feiertagen abweichen können. Die Zeiten werden einmal
+  täglich abgerufen.
+- **Letzte Chance:** Erinnerung am letzten Öffnungstag, wenn die Bücherei am Rückgabetag
+  geschlossen hat und das Medium nicht verlängerbar ist. Auch „bald fällig“ nennt dann den
+  letzten Öffnungstag. Wer unter **Benachrichtigen bei** schon eine Auswahl gespeichert hat,
+  muss „Letzte Chance“ dort einmal ankreuzen.
+
 ## 0.6.0 – 2026-11-05
 
 Datenschutz. **Geänderter Standard:** Benachrichtigungen nennen keine Titel mehr.

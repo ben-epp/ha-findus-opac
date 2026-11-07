@@ -25,6 +25,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 PAGE = (FIXTURES / "konto_musterstadt.html").read_text()
 BASE_URL = "https://musterstadt.findus-internet-opac.de/cgi-bin/findus.fcgi.pl"
 LOGIN_URL = f"{BASE_URL}?customer=musterstadt&leserkonto=1&submit=1"
+HOURS_URL = f"{BASE_URL}?customer=musterstadt&zeige_oeffnungszeiten=1&submit=1"
 LOGIN_PAGE = (
     '<form method="POST" action="">\n'
     '<input type="hidden" name="customer" value="musterstadt">\n'
@@ -57,13 +58,21 @@ class FakeOpac:
         self.mock = mock
         self.page = PAGE
         self.login = LOGIN_PAGE
+        self.hours_page = ""
+        self.hours_exc: Exception | None = None
         self.queue: list[str] = []
         self.exc: Exception | None = None
         mock.get(LOGIN_URL, side_effect=self._get)
+        mock.get(HOURS_URL, side_effect=self._get_hours)
         mock.post(BASE_URL, side_effect=self._post)
 
     async def _get(self, method, url, data) -> AiohttpClientMockResponse:
         return AiohttpClientMockResponse(method, url, text=self.login)
+
+    async def _get_hours(self, method, url, data) -> AiohttpClientMockResponse:
+        if self.hours_exc is not None:
+            return AiohttpClientMockResponse(method, url, exc=self.hours_exc)
+        return AiohttpClientMockResponse(method, url, text=self.hours_page)
 
     async def _post(self, method, url, data) -> AiohttpClientMockResponse:
         if self.exc is not None:
@@ -82,7 +91,8 @@ class FakeOpac:
 
     @property
     def gets(self) -> int:
-        return sum(1 for c in self.mock.mock_calls if c[0].lower() == "get")
+        """GETs of the login page; opening hours have their own daily schedule."""
+        return sum(1 for c in self.mock.mock_calls if c[0].lower() == "get" and "zeige_" not in str(c[1]))
 
     @property
     def posts(self) -> list[dict]:

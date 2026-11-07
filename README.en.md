@@ -19,6 +19,10 @@ Home Assistant shows what is due when, reminds you in time and can renew automat
 - **Reasons, not guesswork:** why an item cannot be renewed (e.g. "renewal limit reached" or
   "reserved").
 - **Library announcements** such as holiday closures or events.
+- **Opening hours:** whether the library is open now, and a warning when it is closed on a
+  due date.
+- **Calendar:** due dates in the Home Assistant calendar.
+- **Data date:** when the library last updated its data.
 - **Card expiry:** a heads-up 30 and 7 days before your library card expires.
 - **Several cards**, e.g. one per family member.
 
@@ -96,6 +100,8 @@ What the card shows:
 - "renewable" with a renew button per item, or the reason why not
 - a button to renew everything renewable and one to sync right away
 - your card's expiry and the library's current announcement (expandable)
+- whether the library is open now, with all hours expandable
+- the library's data date, in orange when it is older than 4 days
 
 <details>
 <summary>Card options (YAML)</summary>
@@ -108,6 +114,8 @@ show_renew: true            # renew buttons
 show_covers: true           # cover images
 show_card_expiry: true      # library card expiry
 show_announcement: true     # library announcement
+show_hours: true            # opening hours
+show_last_sync: true        # library data date
 max_items: 0                # show at most this many items; 0 = all
 warn_days: 3                # orange from this many days before the due date
 group_by: due               # due (by date) | category (by media type) | none
@@ -136,6 +144,7 @@ You get at most one message per day and card – and only when there is somethin
 | Due today | on the due date | once per item |
 | Overdue | after the due date | daily until returned |
 | Renewal | right after every renewal | every time |
+| Last chance | on the last opening day before a closed due date, only if the item cannot be renewed | once per item |
 | Card expires | 30 and 7 days before | once each |
 
 It looks like this:
@@ -158,6 +167,9 @@ Due Sun 8 Nov: Sing-along Songs (renewable)
 
 In the Home Assistant app (Android and iOS) the message has a **Renew** button as soon as
 something is renewable. Other services such as e-mail or Telegram get the text only.
+
+The last chance uses the regular opening hours. They can differ on holidays and during
+closures, and the message says so too.
 
 ## Automatic renewal
 
@@ -186,6 +198,13 @@ Renewing early wastes loan time – shortly before is better.
 - **Library announcements** are free text. Whether one is about a closure is guessed from
   words like "geschlossen" (closed) or "Urlaub" (holiday) – right most of the time, not
   always. Long announcements are shortened; the link leads to the full text.
+- **Opening hours** are the regular times from your library's page, as on a maps service: they
+  can differ on holidays and during closures, and "Open now" does not know about those. If a day
+  has a remark such as "every first Saturday of the month", the sensor shows "unknown" that day
+  and no last chance is worked out from it. Not every library lists hours; the sensor is then
+  unavailable.
+- **Calendar:** an event's title only gives the count, the item titles are in its description.
+  That keeps them out of Home Assistant's history.
 - **Cover images** are loaded by your browser directly from Findus; your credentials are not
   sent. If you prefer not to, switch covers off in the card.
 - **Languages:** German and English, following your Home Assistant language. Titles and notes
@@ -204,6 +223,9 @@ Each card gets a device with these entities. Entity IDs start with the account n
 | Due today / Due soon / Overdue / Renewable | Number of such items |
 | Library card valid until | Expiry date of your library card |
 | Library announcement | Title of the current announcement, empty if none |
+| Library data from | When the library last updated its data |
+| Open now (regular hours) | On/off, with the hours in the attributes `hours`, `closes_at`, `next_open`, `note` |
+| Due dates | Calendar with one all-day event per due date |
 | Overdue items / Renewal possible / Library card expires soon | On/off – handy for automations |
 | Renew all | Button: renew all renewable items |
 | Sync now | Button: read the account again right away |
