@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0 – 2026-11-09
+
+- **Familienansicht:** eine Karte für mehrere Ausweise. Unter „Weitere Ausleihen-Sensoren“
+  gewählte Ausweise erscheinen in einer gemeinsamen Liste mit dem Namen der Person; neue
+  Gruppierung „Nach Person“. Öffnungszeiten, Mitteilung und Datenstand erscheinen einmal pro
+  Bücherei. Das klappt auch mit Ausweisen verschiedener Büchereien.
+- Aufgeräumt: ein überflüssiges Argument in den Optionen entfernt (ohne Auswirkung).
+
 ## 0.8.0 – 2026-11-09
 
 - **E-Mail für Verlängerungsbestätigungen:** neue, freiwillige Option. Die Bücherei schickt

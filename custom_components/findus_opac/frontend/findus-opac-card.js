@@ -2,7 +2,7 @@
  * Findus OPAC card: loan list with due dates and a renew button.
  * Served and auto-registered by the findus_opac integration; no build step, no dependencies.
  */
-const CARD_VERSION = "0.8.0";
+const CARD_VERSION = "0.9.0";
 const DOMAIN = "findus_opac";
 
 const ICONS = {
@@ -110,6 +110,7 @@ const TEXT = {
 const LABELS = {
   de: {
     entity: "Ausleihen-Sensor",
+    entities: "Weitere Ausleihen-Sensoren (Familienansicht)",
     title: "Titel (leer = Kontoname)",
     show_renew: "Verlängern-Knopf anzeigen",
     show_covers: "Cover anzeigen",
@@ -124,6 +125,7 @@ const LABELS = {
   },
   en: {
     entity: "Loans sensor",
+    entities: "More loans sensors (family view)",
     title: "Title (empty = account name)",
     show_renew: "Show renew button",
     show_covers: "Show covers",
@@ -181,8 +183,11 @@ class FindusOpacCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config || !config.entity) {
+    if (!config || !(config.entity || config.entities?.length)) {
       throw new Error("entity is required: pick the Findus 'Loans' sensor");
+    }
+    if (config.entities !== undefined && !Array.isArray(config.entities)) {
+      throw new Error("entities must be a list of Findus 'Loans' sensors");
     }
     this._config = { ...DEFAULTS, ...config };
     this._lastKey = undefined;
@@ -195,56 +200,83 @@ class FindusOpacCard extends HTMLElement {
   }
 
   getCardSize() {
-    const items = this._items().length;
-    return 2 + Math.min(items, this._config?.max_items || items);
+    const items = this._accounts().reduce((n, a) => n + a.items.length, 0);
+    return 2 + Math.min(items, Number(this._config?.max_items) || items);
   }
 
   getGridOptions() {
     return { columns: 12, min_columns: 6, min_rows: 2 };
   }
 
-  _items() {
-    const st = this._hass?.states?.[this._config?.entity];
-    return Array.isArray(st?.attributes?.items) ? st.attributes.items : [];
+  /** Loans sensors on this card: `entity` first, then the family's `entities`. */
+  _entityIds() {
+    return [...new Set([this._config?.entity, ...(this._config?.entities || [])].filter(Boolean))];
+  }
+
+  /** What the card needs about one account, found through the device of its loans sensor. */
+  _account(entityId) {
+    const hass = this._hass;
+    const st = hass.states?.[entityId];
+    const deviceId = hass.entities?.[entityId]?.device_id;
+    const device = deviceId ? hass.devices?.[deviceId] : undefined;
+    const find = (domain, key) => (deviceId ? findEntity(hass, deviceId, domain, key) : undefined);
+    const state = (domain, key) => {
+      const id = find(domain, key);
+      return id ? hass.states[id] : undefined;
+    };
+    return {
+      entityId,
+      st,
+      name: device?.name_by_user || device?.name || st?.attributes?.friendly_name || entityId,
+      library: device?.model || "", // the library's subdomain
+      entryId: device?.primary_config_entry || device?.config_entries?.[0],
+      renewId: find("button", "renew_all"),
+      syncId: find("button", "sync"),
+      card: state("sensor", "card_valid_until"),
+      notice: state("sensor", "announcement"),
+      sync: state("sensor", "last_sync"),
+      open: state("binary_sensor", "open_now"),
+      items: Array.isArray(st?.attributes?.items) ? st.attributes.items : [],
+    };
+  }
+
+  _accounts() {
+    return this._hass && this._config ? this._entityIds().map((e) => this._account(e)) : [];
   }
 
   _render() {
     if (!this._hass || !this._config) return;
     const hass = this._hass;
     const t = TEXT[lang(hass)];
-    const st = hass.states[this._config.entity];
-    const reg = hass.entities?.[this._config.entity];
-    const deviceId = reg?.device_id;
-    const renewId = deviceId ? findEntity(hass, deviceId, "button", "renew_all") : undefined;
-    const syncId = deviceId ? findEntity(hass, deviceId, "button", "sync") : undefined;
-    const cardSensor = deviceId ? findEntity(hass, deviceId, "sensor", "card_valid_until") : undefined;
-    const cardState = cardSensor ? hass.states[cardSensor] : undefined;
-    const noticeId = deviceId ? findEntity(hass, deviceId, "sensor", "announcement") : undefined;
-    const notice = noticeId ? hass.states[noticeId] : undefined;
-    const syncSensor = deviceId ? findEntity(hass, deviceId, "sensor", "last_sync") : undefined;
-    const syncState = syncSensor ? hass.states[syncSensor] : undefined;
-    const openSensor = deviceId ? findEntity(hass, deviceId, "binary_sensor", "open_now") : undefined;
-    const openState = openSensor ? hass.states[openSensor] : undefined;
-    const device = deviceId ? hass.devices?.[deviceId] : undefined;
-    const entryId = device?.primary_config_entry || device?.config_entries?.[0];
+    const all = this._accounts();
+    const accounts = all.filter((a) => a.st);
+    const family = all.length > 1;
+    this._hoursOpen ||= new Set();
+    this._noticeOpen ||= new Set();
 
     // Re-render only when something visible changed; hass updates arrive constantly.
     const key = JSON.stringify([
-      st?.last_updated, st?.state, renewId, syncId, entryId, cardState?.state,
-      notice?.last_updated, this._noticeOpen, syncState?.state, openState?.last_updated, this._hoursOpen, this._busy, this._busyItem, this._syncing, this._config, lang(hass), [...(this._open || [])],
+      all.map((a) => [
+        a.st?.last_updated, a.st?.state, a.name, a.renewId, a.syncId, a.entryId, a.card?.state,
+        a.notice?.last_updated, a.sync?.state, a.open?.last_updated,
+      ]),
+      [...this._noticeOpen], [...this._hoursOpen], this._busy, this._busyItem, this._syncing, this._config, lang(hass), [...(this._open || [])],
     ]);
     if (key === this._lastKey) return;
     this._lastKey = key;
 
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
 
-    if (!st) {
-      this.shadowRoot.innerHTML = `<ha-card><div class="warn">${esc(t.missing(this._config.entity))}</div></ha-card>${STYLE}`;
+    if (!accounts.length) {
+      this.shadowRoot.innerHTML = `<ha-card><div class="warn">${esc(t.missing(this._entityIds().join(", ")))}</div></ha-card>${STYLE}`;
       return;
     }
+    const missing = all.filter((a) => !a.st).map((a) => `<div class="warn">${esc(t.missing(a.entityId))}</div>`).join("");
 
-    const title = this._config.title || (deviceId && hass.devices?.[deviceId]?.name) || t.loans;
-    const items = [...this._items()].sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
+    const title = this._config.title || (family ? accounts.map((a) => a.name).join(", ") : accounts[0].name) || t.loans;
+    const items = accounts
+      .flatMap((a) => a.items.map((i) => ({ ...i, acct: a })))
+      .sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
     const max = Number(this._config.max_items) || items.length;
     const shown = items.slice(0, max);
     const overdue = items.filter((i) => i.days_left < 0).length;
@@ -267,7 +299,7 @@ class FindusOpacCard extends HTMLElement {
           }
           <div class="main">
             <div class="name">${esc(i.title)}</div>
-            <div class="sub">${esc([i.media_type, i.author].filter(Boolean).join(" · "))}</div>
+            <div class="sub">${family ? `<span class="owner">${esc(i.acct.name)}</span> · ` : ""}${esc([i.media_type, i.author].filter(Boolean).join(" · "))}</div>
           </div>
           <div class="due">
             <div class="date">${esc(fmtDate(i.due))}</div>
@@ -280,24 +312,24 @@ class FindusOpacCard extends HTMLElement {
                 : ""
             }
             ${
-              i.renewable && entryId && this._config.show_renew
-                ? `<button class="icon-btn item-renew" data-mednr="${esc(i.mednr)}" title="${esc(t.renewOne)}"
+              i.renewable && i.acct.entryId && this._config.show_renew
+                ? `<button class="icon-btn item-renew" data-entry="${esc(i.acct.entryId)}" data-mednr="${esc(i.mednr)}" title="${esc(t.renewOne)}"
                      ${this._busy || this._busyItem ? "disabled" : ""}>
-                     <ha-icon icon="${this._busyItem === i.mednr ? "mdi:timer-sand" : "mdi:book-refresh"}"></ha-icon>
+                     <ha-icon icon="${this._busyItem === `${i.acct.entryId}:${i.mednr}` ? "mdi:timer-sand" : "mdi:book-refresh"}"></ha-icon>
                    </button>`
                 : ""
             }
           </div>
         </div>`;
 
-    // Accordion: group by due date (mirrors the loan length per media type) or by category.
+    // Accordion: by due date (mirrors the loan length per media type), media type or person.
     const rank = { overdue: 0, soon: 1, ok: 2 };
     const groupBy = this._config.group_by;
     const groups = [];
-    if (groupBy === "due" || groupBy === "category") {
+    if (["due", "category", "account"].includes(groupBy)) {
       const byKey = new Map();
       for (const i of shown) {
-        const k = groupBy === "due" ? i.due : i.category;
+        const k = groupBy === "due" ? i.due : groupBy === "category" ? i.category : i.acct.entityId;
         if (!byKey.has(k)) byKey.set(k, []);
         byKey.get(k).push(i);
       }
@@ -306,10 +338,10 @@ class FindusOpacCard extends HTMLElement {
         const label =
           groupBy === "due"
             ? `${fmtDate(k)} · ${dueText(list[0].days_left)}`
-            : `${t.cats[k] || k} · ${t.next} ${fmtDate(list[0].due)}`;
+            : `${groupBy === "category" ? t.cats[k] || k : list[0].acct.name} · ${t.next} ${fmtDate(list[0].due)}`;
         groups.push({ key: k, list, lvl, label });
       }
-      if (groupBy === "category") groups.sort((a, b) => (a.list[0].due < b.list[0].due ? -1 : 1));
+      if (groupBy !== "due") groups.sort((a, b) => (a.list[0].due < b.list[0].due ? -1 : 1));
     }
     if (!this._open || this._openFor !== groupBy) {
       this._openFor = groupBy;
@@ -341,78 +373,95 @@ class FindusOpacCard extends HTMLElement {
           .join("")
       : shown.map(row).join("");
 
-    const showRenew = this._config.show_renew && renewId && renewable > 0;
-    let cardLine = "";
-    if (this._config.show_card_expiry && /^\d{4}-\d{2}-\d{2}$/.test(cardState?.state || "")) {
-      const days = Number(cardState.attributes?.days_left);
-      const d = new Date(`${cardState.state}T12:00:00`).toLocaleDateString(locale, {
+    const renewIds = accounts.filter((a) => a.renewId && a.items.some((i) => i.renewable)).map((a) => a.renewId);
+    const syncIds = accounts.map((a) => a.syncId).filter(Boolean);
+    const showRenew = this._config.show_renew && renewIds.length > 0;
+
+    // Library cards belong to people: in the family view only the ones expiring soon, with the name.
+    let cardLines = "";
+    for (const a of this._config.show_card_expiry ? accounts : []) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(a.card?.state || "")) continue;
+      const days = Number(a.card.attributes?.days_left);
+      const lvl = days < 0 ? "overdue" : days <= 30 ? "soon" : "ok";
+      if (family && lvl === "ok") continue;
+      const d = new Date(`${a.card.state}T12:00:00`).toLocaleDateString(locale, {
         day: "numeric", month: "long", year: "numeric",
       });
-      const lvl = days < 0 ? "overdue" : days <= 30 ? "soon" : "ok";
-      cardLine = `<div class="cardline ${lvl}"><ha-icon icon="mdi:card-account-details"></ha-icon>${esc(
-        days < 0 ? t.cardExpired(d) : t.cardValid(d),
+      cardLines += `<div class="cardline ${lvl}"><ha-icon icon="mdi:card-account-details"></ha-icon>${esc(
+        `${family ? `${a.name}: ` : ""}${days < 0 ? t.cardExpired(d) : t.cardValid(d)}`,
       )}</div>`;
     }
-    let syncLine = "";
-    const synced = this._config.show_last_sync ? new Date(syncState?.state || "") : null;
-    if (synced && !isNaN(synced)) {
-      const stale = Date.now() - synced.getTime() > SYNC_STALE_DAYS * 86400000;
-      syncLine = `<div class="cardline ${stale ? "soon" : "ok"}"><ha-icon icon="mdi:database-clock-outline"></ha-icon>${esc(
-        t.syncAt(synced.toLocaleString(locale, { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })),
-      )}</div>`;
-    }
-    let hoursBlock = "";
-    const ha = openState?.attributes;
-    if (this._config.show_hours && ha?.hours && openState.state !== "unavailable") {
-      const opens = ha.next_open ? new Date(ha.next_open) : null;
-      const opensText = opens && opens.toLocaleString(locale, { weekday: "short", hour: "2-digit", minute: "2-digit" });
-      const status = openState.state === "on" && ha.closes_at ? t.hoursOpen(ha.closes_at)
-        : openState.state === "off" ? (opensText ? t.hoursOpens(opensText) : t.hoursClosed)
-        : t.hoursUnsure;
-      const open = !!this._hoursOpen;
-      const dayName = (i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" }); // 2024-01-01 is a Monday
-      const week = Object.entries(ha.hours).map(([day, times], i) => `<tr><td>${esc(dayName(i))}</td><td>${esc(
-        (ha.conditional_days || []).includes(day) ? [...times, t.hoursCond].join(", ") : times.join(", ") || t.hoursDayClosed,
-      )}</td></tr>`).join("");
-      hoursBlock = `<div class="hours">
-        <div class="hstatus ${openState.state === "on" ? "isopen" : ""}"><ha-icon icon="mdi:clock-outline"></ha-icon>${esc(status)}
-          <button id="hours-toggle" class="link">${esc(open ? t.hoursLess : t.hoursMore)}</button></div>
-        ${open ? `<table class="hweek">${week}</table>${ha.note ? `<div class="hint">${esc(ha.note)}</div>` : ""}` : ""}
-        <div class="hint">${esc(t.hoursHint)}</div>
-      </div>`;
-    }
-    let noticeBlock = "";
-    const na = notice?.attributes;
-    if (this._config.show_announcement && notice && !["unknown", "unavailable"].includes(notice.state) && na) {
-      const open = !!this._noticeOpen;
-      const http = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
-      const imgs = open ? (na.images || []).filter(http) : [];
-      noticeBlock = `<div class="notice ${na.kind === "closure" ? "closure" : "info"}">
-        <div class="ntitle"><ha-icon icon="${na.kind === "closure" ? "mdi:store-clock" : "mdi:information-outline"}"></ha-icon>${esc(notice.state)}</div>
-        <div class="ntext ${open ? "open" : ""}">${esc(na.truncated && http(na.url) ? na.text.replace(/…$/, "") : na.text)}${na.truncated && http(na.url) ? ` <a href="${esc(na.url)}" target="_blank" rel="noopener noreferrer" title="${esc(t.noticeSite)}">…</a>` : ""}</div>
-        ${imgs.map((u) => `<img class="nimg" src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer">`).join("")}
-        ${(na.text || "").length > 140 || (na.images || []).length ? `<button id="notice-toggle" class="link">${esc(open ? t.noticeLess : t.noticeMore)}</button>` : ""}
-      </div>`;
+
+    // Hours, announcement and data date belong to the library: once per library, named only
+    // when the family uses more than one.
+    const libraries = new Map();
+    for (const a of accounts) if (!libraries.has(a.library)) libraries.set(a.library, a);
+    const named = libraries.size > 1;
+    let syncLines = "";
+    let hoursBlocks = "";
+    let noticeBlocks = "";
+    for (const [lib, a] of libraries) {
+      const prefix = named && lib ? `${lib}: ` : "";
+      const synced = this._config.show_last_sync ? new Date(a.sync?.state || "") : null;
+      if (synced && !isNaN(synced)) {
+        const stale = Date.now() - synced.getTime() > SYNC_STALE_DAYS * 86400000;
+        syncLines += `<div class="cardline ${stale ? "soon" : "ok"}"><ha-icon icon="mdi:database-clock-outline"></ha-icon>${esc(
+          prefix + t.syncAt(synced.toLocaleString(locale, { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })),
+        )}</div>`;
+      }
+      const ha = a.open?.attributes;
+      if (this._config.show_hours && ha?.hours && a.open.state !== "unavailable") {
+        const opens = ha.next_open ? new Date(ha.next_open) : null;
+        const opensText = opens && opens.toLocaleString(locale, { weekday: "short", hour: "2-digit", minute: "2-digit" });
+        const status = a.open.state === "on" && ha.closes_at ? t.hoursOpen(ha.closes_at)
+          : a.open.state === "off" ? (opensText ? t.hoursOpens(opensText) : t.hoursClosed)
+          : t.hoursUnsure;
+        const open = this._hoursOpen.has(lib);
+        const dayName = (i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" }); // 2024-01-01 is a Monday
+        const week = Object.entries(ha.hours).map(([day, times], i) => `<tr><td>${esc(dayName(i))}</td><td>${esc(
+          (ha.conditional_days || []).includes(day) ? [...times, t.hoursCond].join(", ") : times.join(", ") || t.hoursDayClosed,
+        )}</td></tr>`).join("");
+        hoursBlocks += `<div class="hours">
+          <div class="hstatus ${a.open.state === "on" ? "isopen" : ""}"><ha-icon icon="mdi:clock-outline"></ha-icon>${esc(prefix + status)}
+            <button class="link hours-toggle" data-lib="${esc(lib)}">${esc(open ? t.hoursLess : t.hoursMore)}</button></div>
+          ${open ? `<table class="hweek">${week}</table>${ha.note ? `<div class="hint">${esc(ha.note)}</div>` : ""}` : ""}
+          <div class="hint">${esc(t.hoursHint)}</div>
+        </div>`;
+      }
+      const notice = a.notice;
+      const na = notice?.attributes;
+      if (this._config.show_announcement && notice && !["unknown", "unavailable"].includes(notice.state) && na) {
+        const open = this._noticeOpen.has(lib);
+        const http = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
+        const imgs = open ? (na.images || []).filter(http) : [];
+        noticeBlocks += `<div class="notice ${na.kind === "closure" ? "closure" : "info"}">
+          <div class="ntitle"><ha-icon icon="${na.kind === "closure" ? "mdi:store-clock" : "mdi:information-outline"}"></ha-icon>${esc(prefix + notice.state)}</div>
+          <div class="ntext ${open ? "open" : ""}">${esc(na.truncated && http(na.url) ? na.text.replace(/…$/, "") : na.text)}${na.truncated && http(na.url) ? ` <a href="${esc(na.url)}" target="_blank" rel="noopener noreferrer" title="${esc(t.noticeSite)}">…</a>` : ""}</div>
+          ${imgs.map((u) => `<img class="nimg" src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer">`).join("")}
+          ${(na.text || "").length > 140 || (na.images || []).length ? `<button class="link notice-toggle" data-lib="${esc(lib)}">${esc(open ? t.noticeLess : t.noticeMore)}</button>` : ""}
+        </div>`;
+      }
     }
     const maxH = Number(this._config.max_height) || 0;
     const scrollTop = this.shadowRoot.querySelector(".list")?.scrollTop || 0;
     this.shadowRoot.innerHTML = `
       <ha-card>
+        ${missing}
         <div class="header">
-          <div class="titlebox"><div class="title">${esc(title)}</div>${cardLine}${syncLine}</div>
+          <div class="titlebox"><div class="title">${esc(title)}</div>${cardLines}${syncLines}</div>
           <div class="badges">
             <span class="badge">${items.length} ${esc(t.loans)}</span>
             ${overdue ? `<span class="badge bad">${esc(t.overdue(overdue))}</span>` : ""}
             ${
-              syncId
+              syncIds.length
                 ? `<button id="sync" class="icon-btn ${this._syncing ? "spin" : ""}" title="${esc(t.sync)}"
                      ${this._syncing ? "disabled" : ""}><ha-icon icon="mdi:sync"></ha-icon></button>`
                 : ""
             }
           </div>
         </div>
-        ${hoursBlock}
-        ${noticeBlock}
+        ${hoursBlocks}
+        ${noticeBlocks}
         <div class="list" style="${maxH > 0 ? `max-height:${maxH}px;overflow-y:auto` : ""}">
           ${items.length ? rows : `<div class="empty">${esc(t.none)}</div>`}
           ${items.length > shown.length ? `<div class="more">${esc(t.more(items.length - shown.length))}</div>` : ""}
@@ -426,7 +475,7 @@ class FindusOpacCard extends HTMLElement {
         }
       </ha-card>${STYLE}`;
 
-    this.shadowRoot.getElementById("renew")?.addEventListener("click", () => this._renew(renewId));
+    this.shadowRoot.getElementById("renew")?.addEventListener("click", () => this._renew(renewIds));
     const list = this.shadowRoot.querySelector(".list");
     if (list) list.scrollTop = scrollTop; // keep position across hass updates
     this.shadowRoot.querySelectorAll("button.group").forEach((btn) =>
@@ -437,17 +486,22 @@ class FindusOpacCard extends HTMLElement {
         this._render();
       }),
     );
-    this.shadowRoot.getElementById("hours-toggle")?.addEventListener("click", () => {
-      this._hoursOpen = !this._hoursOpen;
-      this._render();
-    });
-    this.shadowRoot.getElementById("notice-toggle")?.addEventListener("click", () => {
-      this._noticeOpen = !this._noticeOpen;
-      this._render();
-    });
-    this.shadowRoot.getElementById("sync")?.addEventListener("click", () => this._sync(syncId));
+    const toggle = (set, k) => (set.has(k) ? set.delete(k) : set.add(k));
+    this.shadowRoot.querySelectorAll("button.hours-toggle").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        toggle(this._hoursOpen, btn.dataset.lib);
+        this._render();
+      }),
+    );
+    this.shadowRoot.querySelectorAll("button.notice-toggle").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        toggle(this._noticeOpen, btn.dataset.lib);
+        this._render();
+      }),
+    );
+    this.shadowRoot.getElementById("sync")?.addEventListener("click", () => this._sync(syncIds));
     this.shadowRoot.querySelectorAll("button.item-renew").forEach((btn) =>
-      btn.addEventListener("click", () => this._renewOne(entryId, btn.dataset.mednr)),
+      btn.addEventListener("click", () => this._renewOne(btn.dataset.entry, btn.dataset.mednr)),
     );
     // Missing or broken cover: fall back to the media-type icon.
     this.shadowRoot.querySelectorAll("img.cover").forEach((img) => {
@@ -463,13 +517,14 @@ class FindusOpacCard extends HTMLElement {
     });
   }
 
-  async _renew(entityId) {
+  /** Press the renew-all buttons of every account that has something renewable. */
+  async _renew(entityIds) {
     if (this._busy) return;
     const t = TEXT[lang(this._hass)];
     this._busy = true;
     this._render();
     try {
-      await this._hass.callService("button", "press", { entity_id: entityId });
+      await this._hass.callService("button", "press", { entity_id: entityIds });
       this._toast(t.renewed);
     } catch (err) {
       this._toast(`${t.failed}: ${err?.message || err}`);
@@ -482,7 +537,7 @@ class FindusOpacCard extends HTMLElement {
   async _renewOne(entryId, mednr) {
     if (this._busy || this._busyItem) return;
     const t = TEXT[lang(this._hass)];
-    this._busyItem = mednr;
+    this._busyItem = `${entryId}:${mednr}`;
     this._render();
     try {
       await this._hass.callService(DOMAIN, "renew", { config_entry_id: entryId, media_ids: [mednr] });
@@ -495,13 +550,13 @@ class FindusOpacCard extends HTMLElement {
     }
   }
 
-  async _sync(entityId) {
+  async _sync(entityIds) {
     if (this._syncing) return;
     const t = TEXT[lang(this._hass)];
     this._syncing = true;
     this._render();
     try {
-      await this._hass.callService("button", "press", { entity_id: entityId });
+      await this._hass.callService("button", "press", { entity_id: entityIds });
       this._toast(t.synced);
     } catch (err) {
       this._toast(`${err?.message || err}`);
@@ -570,6 +625,7 @@ const STYLE = `<style>
   .main { flex: 1; min-width: 0; }
   .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sub { font-size: .85em; color: var(--secondary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .owner { font-weight: 500; color: var(--primary-text-color); }
   .due { text-align: right; flex: none; font-size: .9em; }
   .left { font-size: .85em; color: var(--secondary-text-color); }
   .row.soon .left, .row.soon .type { color: var(--warning-color); }
@@ -617,6 +673,7 @@ class FindusOpacCardEditor extends HTMLElement {
     this._form.computeLabel = (s) => labels[s.name] || s.name;
     this._form.schema = [
       { name: "entity", required: true, selector: { entity: { filter: { integration: DOMAIN, domain: "sensor" } } } },
+      { name: "entities", selector: { entity: { multiple: true, filter: { integration: DOMAIN, domain: "sensor" } } } },
       { name: "title", selector: { text: {} } },
       { name: "show_renew", selector: { boolean: {} } },
       { name: "show_covers", selector: { boolean: {} } },
@@ -632,8 +689,8 @@ class FindusOpacCardEditor extends HTMLElement {
           select: {
             mode: "dropdown",
             options: lang(this._hass) === "de"
-              ? [{ value: "due", label: "Nach Rückgabedatum" }, { value: "category", label: "Nach Medienart" }, { value: "none", label: "Nicht gruppieren" }]
-              : [{ value: "due", label: "By due date" }, { value: "category", label: "By media type" }, { value: "none", label: "No grouping" }],
+              ? [{ value: "due", label: "Nach Rückgabedatum" }, { value: "category", label: "Nach Medienart" }, { value: "account", label: "Nach Person" }, { value: "none", label: "Nicht gruppieren" }]
+              : [{ value: "due", label: "By due date" }, { value: "category", label: "By media type" }, { value: "account", label: "By person" }, { value: "none", label: "No grouping" }],
           },
         },
       },

@@ -24,7 +24,7 @@ Home Assistant shows what is due when, reminds you in time and can renew automat
 - **Calendar:** due dates in the Home Assistant calendar.
 - **Data date:** when the library last updated its data.
 - **Card expiry:** a heads-up 30 and 7 days before your library card expires.
-- **Several cards**, e.g. one per family member.
+- **Several cards**, e.g. one per family member – all on one dashboard card if you like.
 
 ## Does it work with my library?
 
@@ -103,13 +103,21 @@ What the card shows:
 - whether the library is open now, with all hours expandable
 - the library's data date, in orange when it is older than 4 days
 
+**For the whole family:** in the card editor, pick the other family members' cards under
+**More loans sensors**. The card then shows every item in one list, each with the person's
+name, and can also group by person. "Renew all" and sync apply to every card. Opening hours,
+announcement and data date appear once per library; card expiry only for cards that expire in
+the next 30 days.
+
 <details>
 <summary>Card options (YAML)</summary>
 
 ```yaml
 type: custom:findus-opac-card
 entity: sensor.lena_loans
-title: Lena's library       # default: account name
+entities:                   # more cards for the family view (optional)
+  - sensor.max_loans
+title: Lena's library       # default: account name, all names for a family
 show_renew: true            # renew buttons
 show_covers: true           # cover images
 show_card_expiry: true      # library card expiry
@@ -118,7 +126,7 @@ show_hours: true            # opening hours
 show_last_sync: true        # library data date
 max_items: 0                # show at most this many items; 0 = all
 warn_days: 3                # orange from this many days before the due date
-group_by: due               # due (by date) | category (by media type) | none
+group_by: due               # due (by date) | category (by media type) | account (by person) | none
 max_height: 400             # list height in px, scrollable beyond; 0 = unlimited
 ```
 
