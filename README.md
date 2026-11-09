@@ -25,7 +25,7 @@ Wunsch automatisch.
 - **Kalender:** Rückgabetermine im Kalender von Home Assistant.
 - **Datenstand:** wann die Bücherei zuletzt ihre Daten aktualisiert hat.
 - **Ausweis-Ablauf:** Hinweis 30 und 7 Tage, bevor der Bibliotheksausweis abläuft.
-- **Mehrere Ausweise**, z. B. einer pro Familienmitglied.
+- **Mehrere Ausweise**, z. B. einer pro Familienmitglied – auf Wunsch alle auf einer Karte.
 
 ## Funktioniert das mit meiner Bücherei?
 
@@ -105,13 +105,21 @@ Was die Karte zeigt:
 - ob die Bücherei gerade geöffnet hat, mit allen Zeiten zum Aufklappen
 - den Datenstand der Bücherei, orange, wenn er älter als 4 Tage ist
 
+**Für die ganze Familie:** Wähle im Karten-Editor unter **Weitere Ausleihen-Sensoren** die
+Ausweise der anderen Familienmitglieder. Die Karte zeigt dann alle Medien in einer Liste, jedes
+mit dem Namen der Person, und lässt sich auch nach Person gruppieren. „Alle verlängern“ und der
+Abgleich gelten für alle Ausweise. Öffnungszeiten, Mitteilung und Datenstand erscheinen einmal
+pro Bücherei; vom Ausweis nur die, die in den nächsten 30 Tagen ablaufen.
+
 <details>
 <summary>Einstellungen der Karte (YAML)</summary>
 
 ```yaml
 type: custom:findus-opac-card
 entity: sensor.lena_ausleihen
-title: Lenas Bücherei       # Standard: Kontoname
+entities:                   # weitere Ausweise für die Familienansicht (optional)
+  - sensor.max_ausleihen
+title: Lenas Bücherei       # Standard: Kontoname, bei der Familie alle Namen
 show_renew: true            # Verlängern-Knöpfe
 show_covers: true           # Coverbilder
 show_card_expiry: true      # Gültigkeit des Ausweises
@@ -120,7 +128,7 @@ show_hours: true            # Öffnungszeiten
 show_last_sync: true        # Datenstand der Bücherei
 max_items: 0                # höchstens so viele Medien; 0 = alle
 warn_days: 3                # orange ab so vielen Tagen vor der Rückgabe
-group_by: due               # due (nach Datum) | category (nach Medienart) | none
+group_by: due               # due (nach Datum) | category (nach Medienart) | account (nach Person) | none
 max_height: 400             # Höhe der Liste in px, darüber scrollbar; 0 = unbegrenzt
 ```
 
