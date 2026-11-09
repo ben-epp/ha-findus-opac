@@ -87,6 +87,17 @@ async def test_auto_renew_dedup(hass, opac, make_entry):
     assert len(renew_posts(opac)) == 1  # due dates unchanged -> not requested again
 
 
+async def test_auto_renew_retries_lapsed_request_next_day(hass, opac, make_entry, freezer):
+    """The library can drop a request: the item is renewable again with the same due date."""
+    entry = await make_entry(**{CONF_AUTO_RENEW: True, CONF_AUTO_RENEW_DAYS: 2})
+    await _setup(hass, entry)
+    assert len(renew_posts(opac)) == 1
+    freezer.tick(86400)
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert len(renew_posts(opac)) == 2
+
+
 async def test_auto_renew_off(hass, opac, make_entry):
     entry = await make_entry(**{CONF_AUTO_RENEW: False, CONF_AUTO_RENEW_DAYS: 2})
     await _setup(hass, entry)

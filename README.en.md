@@ -174,7 +174,8 @@ closures, and the message says so too.
 ## Automatic renewal
 
 Under **Configure** you can switch on **Auto-renew**. The integration then requests
-the renewal by itself when an item is due soon and renewable – once per item.
+the renewal by itself when an item is due soon and renewable – once per item. If the library
+lets the request lapse, it tries again the next day.
 
 - **Auto-renew window** (default 2 days): renew this many days before the due date.
 - **Auto-renew only**: limit it to certain media types, e.g. only Tonies and CDs. Empty = all.
