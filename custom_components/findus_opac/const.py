@@ -20,6 +20,8 @@ CONF_AUTO_RENEW = "auto_renew"
 CONF_AUTO_RENEW_DAYS = "auto_renew_days"
 CONF_AUTO_RENEW_CATEGORIES = "auto_renew_categories"  # empty = all categories
 DEFAULT_AUTO_RENEW_DAYS = 2
+# Optional; the library mails its confirmation of a renewal request here (Findus "replyto").
+CONF_RENEW_EMAIL = "renew_email"
 
 # Notifications (options); empty targets = notifications off
 CONF_NOTIFY_TARGETS = "notify_targets"

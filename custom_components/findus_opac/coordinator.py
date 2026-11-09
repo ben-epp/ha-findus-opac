@@ -23,6 +23,7 @@ from .const import (
     CONF_AUTO_RENEW,
     CONF_AUTO_RENEW_CATEGORIES,
     CONF_AUTO_RENEW_DAYS,
+    CONF_RENEW_EMAIL,
     CONF_CARD,
     CONF_DUE_SOON_DAYS,
     CONF_SCAN_HOURS,
@@ -93,6 +94,10 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
     def due_soon_days(self) -> int:
         return self.entry.options.get(CONF_DUE_SOON_DAYS, DEFAULT_DUE_SOON_DAYS)
 
+    @property
+    def renew_email(self) -> str:
+        return self.entry.options.get(CONF_RENEW_EMAIL, "")
+
     def today(self) -> date:
         return dt_util.now().date()
 
@@ -142,7 +147,7 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
             if loan.mednr in targets:
                 self._auto_attempted[loan.mednr] = loan.due
         try:
-            renewed, outcomes = await self.client.renew(targets)
+            renewed, outcomes = await self.client.renew(targets, reply_to=self.renew_email)
         except (FindusError, aiohttp.ClientError, TimeoutError) as err:
             # Never fail the poll because of auto-renew; the next due date change retries.
             _LOGGER.warning("Auto-renew for entry %s failed: %s", self.entry.entry_id, err)
@@ -170,7 +175,7 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
                 self._after_renew([], "manual")
                 return []
         try:
-            account, outcomes = await self.client.renew(mednrs)
+            account, outcomes = await self.client.renew(mednrs, reply_to=self.renew_email)
         except AuthError as err:
             raise HomeAssistantError(
                 translation_domain=DOMAIN, translation_key="renew_auth_failed"

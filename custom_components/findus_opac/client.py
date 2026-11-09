@@ -454,8 +454,13 @@ class FindusClient:
         self._announce(account, parse_announcement(login_page))
         return account
 
-    async def renew(self, mednrs: list[str] | None = None) -> tuple[Account, list[RenewOutcome]]:
+    async def renew(
+        self, mednrs: list[str] | None = None, reply_to: str = ""
+    ) -> tuple[Account, list[RenewOutcome]]:
         """Renew the given items (default: all renewable). Non-renewable ids are skipped.
+
+        reply_to is the optional email field of the renewal form: the library sends its
+        confirmation there, as in the browser. The request works without it.
 
         Findus calls this a "Verlängerungsantrag": the library system may only apply it
         on its next sync. The account page then marks the row as requested and the due
@@ -469,6 +474,8 @@ class FindusClient:
             return before, []
         data = {**before.form, "submit": " "}
         data.update({f"verlaengere_nr_{l.mednr}": "1" for l in targets})
+        if reply_to:
+            data["replyto"] = reply_to
         page = await self._post(self.url, data)
         accepted = bool(RENEW_OK_RE.search(page))
         try:

@@ -6,11 +6,17 @@ from typing import Any
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_ACCOUNT_NAME, CONF_CARD, CONF_NOTIFY_TARGETS, CONF_SECRET
+from .const import (
+    CONF_ACCOUNT_NAME,
+    CONF_CARD,
+    CONF_NOTIFY_TARGETS,
+    CONF_RENEW_EMAIL,
+    CONF_SECRET,
+)
 from .coordinator import FindusConfigEntry
 
 # Credentials, plus names: account names and notify targets often identify a person.
-TO_REDACT = {CONF_ACCOUNT_NAME, CONF_CARD, CONF_NOTIFY_TARGETS, CONF_SECRET}
+TO_REDACT = {CONF_ACCOUNT_NAME, CONF_CARD, CONF_NOTIFY_TARGETS, CONF_RENEW_EMAIL, CONF_SECRET}
 
 
 async def async_get_config_entry_diagnostics(

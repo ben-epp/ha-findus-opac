@@ -178,6 +178,9 @@ the renewal by itself when an item is due soon and renewable – once per item.
 
 - **Auto-renew window** (default 2 days): renew this many days before the due date.
 - **Auto-renew only**: limit it to certain media types, e.g. only Tonies and CDs. Empty = all.
+- **Email for renewal confirmations** (optional): the library sends its confirmation of each
+  renewal request to this address – as when renewing on its website. Applies to every renewal,
+  including the buttons.
 
 The same dialog also has the **Update interval** (default every 6 hours) and the **Due soon
 window** (default 3 days).
@@ -315,6 +318,8 @@ automation:
   the service you use (Google, Apple, Telegram, e-mail).
 - The `findus_opac_renewal` event contains titles and the account name and ends up in Home
   Assistant's history.
+- If you enter an email for renewal confirmations, it goes to the library with every renewal
+  request.
 
 ## License
 

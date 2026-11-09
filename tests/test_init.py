@@ -55,7 +55,11 @@ async def test_diagnostics_redacts_names(hass, opac, loaded_entry):
     """Account names and notify targets (mobile_app_lenas_iphone) identify people."""
     hass.config_entries.async_update_entry(
         loaded_entry,
-        options={CONF_NOTIFY_TARGETS: ["mobile_app_lenas_iphone"], CONF_NOTIFY_TIME: "08:00:00"},
+        options={
+            CONF_NOTIFY_TARGETS: ["mobile_app_lenas_iphone"],
+            CONF_NOTIFY_TIME: "08:00:00",
+            "renew_email": "lena@example.org",
+        },
     )
     await hass.async_block_till_done()
     diag = await async_get_config_entry_diagnostics(hass, loaded_entry)
@@ -63,6 +67,7 @@ async def test_diagnostics_redacts_names(hass, opac, loaded_entry):
     assert "Kinder" not in entry_text and "lenas_iphone" not in entry_text
     assert diag["entry"]["data"]["account_name"] == "**REDACTED**"
     assert diag["entry"]["options"][CONF_NOTIFY_TARGETS] == "**REDACTED**"
+    assert diag["entry"]["options"]["renew_email"] == "**REDACTED**"
     assert diag["entry"]["options"][CONF_NOTIFY_TIME] == "08:00:00"  # still useful for support
 
 
