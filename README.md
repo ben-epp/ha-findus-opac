@@ -42,20 +42,28 @@ Du brauchst außerdem:
 
 ## Installation
 
-### Mit HACS (empfohlen)
+### Über den Marketplace (empfohlen)
 
-[![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ben-epp&repository=ha-findus-opac&category=integration)
+Seit Home Assistant 2026.11 ist HACS als **Marketplace** fest eingebaut.
+
+[![Im Marketplace öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ben-epp&repository=ha-findus-opac&category=integration)
 
 Oder von Hand:
 
-1. In Home Assistant **HACS** öffnen → Menü (⋮) → **Benutzerdefinierte Repositories**.
-2. `https://github.com/ben-epp/ha-findus-opac` eintragen, Typ **Integration**, hinzufügen.
-3. **Findus Internet-OPAC** suchen, **Herunterladen**.
-4. Home Assistant **neu starten**.
+1. **Einstellungen → Marketplace** öffnen. Beim ersten Mal den Hinweis bestätigen.
+2. Nach **Findus** suchen und **Findus Internet-OPAC** öffnen.
+3. **Installieren** wählen und im Dialog noch einmal **Installieren** bestätigen.
+4. Meist öffnet sich gleich die [Einrichtung](#einrichtung). Fragt der Marketplace nach einem
+   Neustart, Home Assistant neu starten.
 
-Updates zeigt HACS dir danach automatisch an.
+Updates zeigt dir der Marketplace danach automatisch an.
 
-### Ohne HACS
+### Mit HACS (bis Home Assistant 2026.10)
+
+In **HACS** nach **Findus Internet-OPAC** suchen, **Herunterladen** und Home Assistant
+**neu starten**. Der Knopf oben funktioniert hier auch.
+
+### Von Hand
 
 Den Ordner `custom_components/findus_opac` aus dem
 [neuesten Release](https://github.com/ben-epp/ha-findus-opac/releases/latest) in den Ordner
