@@ -83,8 +83,10 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
         )
         self.client = make_client(hass, entry.data)
         self._recheck: Callable[[], None] | None = None
-        # mednr -> due date already auto-renewed; a pending request is not resent every poll.
-        self._auto_attempted: dict[str, date] = {}
+        # mednr -> (due date, day) of the last auto-renew. A pending request is not renewable,
+        # so it is never resent; one the library dropped (renewable again, same due date)
+        # is retried the next day instead of never.
+        self._auto_attempted: dict[str, tuple[date, date]] = {}
         # Regular opening hours; they rarely change, so fetched once a day.
         self.hours: OpeningHours | None = None
         self._hours_day: date | None = None
@@ -123,7 +125,7 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
         self._hours_day = self.today()
 
     def auto_renew_targets(self, account: Account) -> list[str]:
-        """Renewable loans inside the auto-renew window that were not tried for this due date."""
+        """Renewable loans inside the auto-renew window not tried today for this due date."""
         opts = self.entry.options
         if not opts.get(CONF_AUTO_RENEW, False):
             return []
@@ -136,20 +138,21 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
             if l.renewable
             and l.days_left(today) <= days
             and (not categories or l.category in categories)
-            and self._auto_attempted.get(l.mednr) != l.due
+            and self._auto_attempted.get(l.mednr) != (l.due, today)
         ]
 
     async def _async_auto_renew(self, account: Account) -> Account:
         targets = self.auto_renew_targets(account)
         if not targets:
             return account
+        today = self.today()
         for loan in account.loans:
             if loan.mednr in targets:
-                self._auto_attempted[loan.mednr] = loan.due
+                self._auto_attempted[loan.mednr] = (loan.due, today)
         try:
             renewed, outcomes = await self.client.renew(targets, reply_to=self.renew_email)
         except (FindusError, aiohttp.ClientError, TimeoutError) as err:
-            # Never fail the poll because of auto-renew; the next due date change retries.
+            # Never fail the poll because of auto-renew; retried tomorrow.
             _LOGGER.warning("Auto-renew for entry %s failed: %s", self.entry.entry_id, err)
             return account
         self._after_renew(outcomes, "auto")

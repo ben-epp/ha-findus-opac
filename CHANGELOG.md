@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.8.0 – 2026-11-09
 
 - **E-Mail für Verlängerungsbestätigungen:** neue, freiwillige Option. Die Bücherei schickt
   ihre Bestätigung jedes Verlängerungsantrags an diese Adresse, wie beim Verlängern auf ihrer
   Webseite. In den Diagnosedaten wird sie geschwärzt.
+- **Automatisch verlängern:** Lässt die Bücherei einen Verlängerungsantrag verfallen, ist das
+  Medium wieder verlängerbar, aber mit demselben Rückgabedatum. Bisher hat die Integration es
+  dann nicht erneut versucht (erst nach einem Neustart). Jetzt stellt sie den Antrag am
+  nächsten Tag noch einmal, solange das Medium im Zeitfenster liegt.
 
 ## 0.7.0 – 2026-11-07
 

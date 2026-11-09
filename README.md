@@ -178,7 +178,8 @@ können sie abweichen, darauf weist die Nachricht auch hin.
 
 Unter **Konfigurieren** lässt sich **Automatisch verlängern** einschalten. Dann beantragt die
 Integration die Verlängerung von selbst, wenn ein Medium bald fällig und verlängerbar ist –
-pro Medium nur einmal.
+pro Medium nur einmal. Lässt die Bücherei den Antrag verfallen, versucht sie es am nächsten Tag
+noch einmal.
 
 - **Zeitraum für automatisches Verlängern** (Standard 2 Tage): so viele Tage vor der
   Rückgabe wird verlängert.
