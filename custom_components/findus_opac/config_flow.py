@@ -234,7 +234,6 @@ class FindusOptionsFlow(OptionsFlow):
                 ): TimeSelector(),
                 vol.Optional(
                     CONF_NOTIFY_EVENTS,
-    CONF_NOTIFY_SHOW_TITLES,
                     default=list(opts.get(CONF_NOTIFY_EVENTS, NOTIFY_EVENTS)),
                 ): SelectSelector(
                     SelectSelectorConfig(
