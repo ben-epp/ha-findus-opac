@@ -184,6 +184,9 @@ pro Medium nur einmal.
   Rückgabe wird verlängert.
 - **Nur automatisch verlängern**: auf Medienarten beschränken, z. B. nur Tonies und CDs.
   Leer = alle.
+- **E-Mail für Verlängerungsbestätigungen** (freiwillig): Die Bücherei schickt ihre Bestätigung
+  jedes Verlängerungsantrags an diese Adresse – wie beim Verlängern auf ihrer Webseite. Gilt für
+  jede Verlängerung, auch per Knopf.
 
 Im selben Dialog stehen auch das **Aktualisierungsintervall** (Standard alle 6 Stunden) und
 der **Zeitraum für „bald fällig“** (Standard 3 Tage).
@@ -321,6 +324,8 @@ automation:
   laufen über den jeweiligen Dienst (Google, Apple, Telegram, E-Mail).
 - Das Ereignis `findus_opac_renewal` enthält Titel und Kontonamen und landet in der Historie
   von Home Assistant.
+- Ist eine E-Mail für Verlängerungsbestätigungen eingetragen, geht sie mit jedem
+  Verlängerungsantrag an die Bücherei.
 
 ## Lizenz
 

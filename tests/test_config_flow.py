@@ -158,6 +158,7 @@ async def test_options_flow_reloads(hass, opac, loaded_entry):
         CONF_AUTO_RENEW: False,
         CONF_AUTO_RENEW_DAYS: 2,
         CONF_AUTO_RENEW_CATEGORIES: [],
+        "renew_email": "",
         CONF_NOTIFY_TARGETS: [],
         CONF_NOTIFY_TIME: "08:00:00",
         CONF_NOTIFY_EVENTS: ["due_soon", "due_today", "overdue", "last_chance", "renewed", "card_expiry"],
@@ -208,3 +209,19 @@ async def test_options_flow_saves_notifications(hass, opac, loaded_entry):
     assert loaded_entry.options[CONF_NOTIFY_TARGETS] == ["mobile_app_phone"]
     assert loaded_entry.options[CONF_NOTIFY_TIME] == "07:30:00"
     assert loaded_entry.options[CONF_NOTIFY_EVENTS] == ["due_today"]
+
+
+async def test_options_flow_renew_email(hass, opac, loaded_entry):
+    base = {CONF_SCAN_HOURS: 6, CONF_DUE_SOON_DAYS: 3}
+    result = await hass.config_entries.options.async_init(loaded_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {**base, "renew_email": "no-address"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"renew_email": "invalid_email"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {**base, "renew_email": " eltern@example.org "}
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert loaded_entry.options["renew_email"] == "eltern@example.org"

@@ -50,6 +50,15 @@ async def test_press_renews_all_renewable(hass, opac, loaded_entry):
     ]
     assert set(data["items"][0]) == {"mednr", "title", "old_due", "new_due", "status"}
 
+    assert "replyto" not in renew  # no email configured: field left out, as when left empty
+
+
+async def test_renew_sends_configured_email(hass, opac, loaded_entry):
+    hass.config_entries.async_update_entry(loaded_entry, options={"renew_email": "eltern@example.org"})
+    await hass.async_block_till_done()
+    await _press(hass, loaded_entry)
+    assert opac.posts[-1]["replyto"] == "eltern@example.org"
+
 
 async def test_press_detects_renewed(hass, opac, loaded_entry):
     events = async_capture_events(hass, EVENT_RENEWAL)

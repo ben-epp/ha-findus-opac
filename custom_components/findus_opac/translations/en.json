@@ -49,6 +49,7 @@
           "auto_renew": "Auto-renew",
           "auto_renew_days": "Auto-renew window",
           "auto_renew_categories": "Auto-renew only",
+          "renew_email": "Email for renewal confirmations",
           "notify_targets": "Notify",
           "notify_time": "Notification time",
           "notify_events": "Notify about",
@@ -60,12 +61,16 @@
           "auto_renew": "Automatically request renewal for items that can be renewed and are due soon.",
           "auto_renew_days": "Renew items due within this many days (0 = only on the due date).",
           "auto_renew_categories": "Restrict auto-renew to these media types. Nothing selected = all types.",
+          "renew_email": "Optional. The library sends its confirmation of each renewal request to this address, as on its website. Empty = no email.",
           "notify_targets": "Notify services to send to, e.g. mobile_app_my_phone. Nothing selected = notifications off.",
           "notify_time": "Daily time for the due-date digest.",
           "notify_events": "Due soon and due today are sent once per item, overdue once a day, renewals when they happen, card expiry 30 and 7 days ahead. Last chance only for items that cannot be renewed.",
           "notify_show_titles": "Off: only counts, e.g. \"Due today: 2 items\". On: titles appear in the message, also on the lock screen and with the push or messaging service."
         }
       }
+    },
+    "error": {
+      "invalid_email": "Please enter a valid email address."
     }
   },
   "entity": {

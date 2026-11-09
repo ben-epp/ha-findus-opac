@@ -39,6 +39,7 @@ from .const import (
     CONF_NOTIFY_TARGETS,
     CONF_NOTIFY_TIME,
     CONF_DUE_SOON_DAYS,
+    CONF_RENEW_EMAIL,
     CONF_SCAN_HOURS,
     CONF_SECRET,
     CONF_SUBDOMAIN,
@@ -58,6 +59,7 @@ _LOGGER = logging.getLogger(__name__)
 HOST_SUFFIX = ".findus-internet-opac.de"
 SUBDOMAIN_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$")
 PASSWORD = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
+EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 
 def normalize_subdomain(value: str) -> str | None:
@@ -149,7 +151,11 @@ class FindusConfigFlow(ConfigFlow, domain=DOMAIN):
 
 class FindusOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        if user_input is not None:
+        errors: dict[str, str] = {}
+        email = (user_input or {}).get(CONF_RENEW_EMAIL, "").strip()
+        if email and not EMAIL_RE.fullmatch(email):
+            errors[CONF_RENEW_EMAIL] = "invalid_email"
+        if user_input is not None and not errors:
             return self.async_create_entry(
                 data={
                     CONF_SCAN_HOURS: int(user_input[CONF_SCAN_HOURS]),
@@ -159,6 +165,7 @@ class FindusOptionsFlow(OptionsFlow):
                         user_input.get(CONF_AUTO_RENEW_DAYS, DEFAULT_AUTO_RENEW_DAYS)
                     ),
                     CONF_AUTO_RENEW_CATEGORIES: list(user_input.get(CONF_AUTO_RENEW_CATEGORIES, [])),
+                    CONF_RENEW_EMAIL: email,
                     CONF_NOTIFY_TARGETS: list(user_input.get(CONF_NOTIFY_TARGETS, [])),
                     CONF_NOTIFY_TIME: str(user_input.get(CONF_NOTIFY_TIME, DEFAULT_NOTIFY_TIME)),
                     CONF_NOTIFY_EVENTS: list(user_input.get(CONF_NOTIFY_EVENTS, NOTIFY_EVENTS)),
@@ -211,6 +218,9 @@ class FindusOptionsFlow(OptionsFlow):
                         translation_key="categories",
                     )
                 ),
+                vol.Optional(
+                    CONF_RENEW_EMAIL, default=opts.get(CONF_RENEW_EMAIL, "")
+                ): TextSelector(TextSelectorConfig(type=TextSelectorType.EMAIL)),
                 vol.Optional(CONF_NOTIFY_TARGETS, default=targets): SelectSelector(
                     SelectSelectorConfig(
                         options=available,
@@ -239,4 +249,6 @@ class FindusOptionsFlow(OptionsFlow):
                 ): BooleanSelector(),
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        if user_input is not None:  # keep what was entered when showing an error
+            schema = self.add_suggested_values_to_schema(schema, user_input)
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **E-Mail für Verlängerungsbestätigungen:** neue, freiwillige Option. Die Bücherei schickt
+  ihre Bestätigung jedes Verlängerungsantrags an diese Adresse, wie beim Verlängern auf ihrer
+  Webseite. In den Diagnosedaten wird sie geschwärzt.
+
 ## 0.7.0 – 2026-11-07
 
 - **Datenstand der Bücherei:** neuer Sensor und Anzeige auf der Karte, orange ab 4 Tagen.

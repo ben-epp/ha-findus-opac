@@ -49,6 +49,7 @@
           "auto_renew": "Automatisch verlängern",
           "auto_renew_days": "Zeitraum für automatisches Verlängern",
           "auto_renew_categories": "Nur automatisch verlängern",
+          "renew_email": "E-Mail für Verlängerungsbestätigungen",
           "notify_targets": "Benachrichtigen",
           "notify_time": "Uhrzeit der Benachrichtigung",
           "notify_events": "Benachrichtigen bei",
@@ -60,12 +61,16 @@
           "auto_renew": "Verlängerung für verlängerbare Medien automatisch beantragen, wenn sie bald fällig sind.",
           "auto_renew_days": "Medien verlängern, die innerhalb so vieler Tage fällig sind (0 = erst am Rückgabetag).",
           "auto_renew_categories": "Automatisches Verlängern auf diese Medienarten beschränken. Keine Auswahl = alle.",
+          "renew_email": "Freiwillig. Die Bücherei schickt ihre Bestätigung jedes Verlängerungsantrags an diese Adresse, wie auf ihrer Webseite. Leer = keine E-Mail.",
           "notify_targets": "Notify-Dienste, an die gesendet wird, z. B. mobile_app_mein_handy. Keine Auswahl = keine Benachrichtigungen.",
           "notify_time": "Tägliche Uhrzeit für die Fristen-Übersicht.",
           "notify_events": "Bald fällig und heute fällig kommen einmal je Medium, überfällig einmal täglich, Verlängerungen sofort, Ausweis-Ablauf 30 und 7 Tage vorher. Letzte Chance nur für Medien, die sich nicht verlängern lassen.",
           "notify_show_titles": "Aus: nur die Anzahl, z. B. „Heute fällig: 2 Medien“. An: Titel stehen in der Nachricht, also auch auf dem Sperrbildschirm und beim Push- oder Messenger-Dienst."
         }
       }
+    },
+    "error": {
+      "invalid_email": "Bitte eine gültige E-Mail-Adresse eingeben."
     }
   },
   "entity": {
