@@ -190,8 +190,8 @@ closures, and the message says so too.
 ## Automatic renewal
 
 Under **Configure** you can switch on **Auto-renew**. The integration then requests
-the renewal by itself when an item is due soon and renewable – once per item. If the library
-lets the request lapse, it tries again the next day.
+the renewal by itself when an item is due soon and renewable – once per item. If the due date
+hasn't moved after two of the library's opening days, it sends the request a second time.
 
 - **Auto-renew window** (default 2 days): renew this many days before the due date.
 - **Auto-renew only**: limit it to certain media types, e.g. only Tonies and CDs. Empty = all.
@@ -210,8 +210,11 @@ Renewing early wastes loan time – shortly before is better.
 - **The data is a few hours old.** Findus mirrors the library's own system, which uploads
   several times a day. Something you just returned at the desk may stay on the list for a
   while. Polling more often doesn't help.
-- **Renewing is a request.** The library accepts it right away, but the new due date often
-  appears only after its next sync. Until then the item shows "renewal requested".
+- **Renewing is a request.** Findus emails it to the library, and staff renew the item by hand
+  during opening hours. On the library's website the item looks renewable again after the next
+  data upload, although the request is still waiting. So the integration remembers every
+  request and shows "renewal requested on …" until the due date moves – and doesn't send it
+  again until then.
 - **Not everything can be renewed.** The library decides: usually only from 14 days before
   the due date, not when reserved, and only 2–3 times per item. The card shows the reason
   right at the item.

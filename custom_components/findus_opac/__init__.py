@@ -30,8 +30,8 @@ from .const import (
     DOMAIN,
     SERVICE_RENEW,
 )
-from .coordinator import FindusConfigEntry, FindusCoordinator, outcome_dict
-from .notifications import FindusNotifier
+from .coordinator import FindusConfigEntry, FindusCoordinator, outcome_dict, requests_store
+from .notifications import FindusNotifier, notified_store
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,6 +116,7 @@ async def _async_ensure_lovelace_resource(hass: HomeAssistant, url: str) -> None
 
 async def async_setup_entry(hass: HomeAssistant, entry: FindusConfigEntry) -> bool:
     coordinator = FindusCoordinator(hass, entry)
+    await coordinator.async_load_requests()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -131,3 +132,9 @@ async def _async_reload(hass: HomeAssistant, entry: FindusConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: FindusConfigEntry) -> bool:
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: FindusConfigEntry) -> None:
+    """Delete what the entry stored besides its config: pending requests, sent reminders."""
+    await requests_store(hass, entry.entry_id).async_remove()
+    await notified_store(hass, entry.entry_id).async_remove()

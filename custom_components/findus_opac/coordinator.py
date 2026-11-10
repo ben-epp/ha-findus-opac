@@ -14,10 +14,18 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .client import Account, AuthError, FindusClient, FindusError, OpeningHours, RenewOutcome
+from .client import (
+    Account,
+    AuthError,
+    FindusClient,
+    FindusError,
+    OpeningHours,
+    RenewOutcome,
+)
 from .const import (
     CONF_ACCOUNT_NAME,
     CONF_AUTO_RENEW,
@@ -40,6 +48,17 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 type FindusConfigEntry = ConfigEntry[FindusCoordinator]
+
+# A renewal request is an email to the library; staff apply it by hand. Findus forgets the
+# request at the library's next data upload and shows the item as renewable again, so the
+# integration keeps its own record. It counts as pending for this many opening days after it
+# was sent (calendar days if the hours are unknown); only then is one new request sent.
+PENDING_OPEN_DAYS = 2
+PENDING_FALLBACK_DAYS = 3
+
+
+def requests_store(hass: HomeAssistant, entry_id: str) -> Store[dict[str, dict[str, str]]]:
+    return Store(hass, 1, f"{DOMAIN}.requests.{entry_id}")
 
 
 def make_client(hass: HomeAssistant, data: Mapping[str, Any]) -> FindusClient:
@@ -87,6 +106,10 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
         # so it is never resent; one the library dropped (renewable again, same due date)
         # is retried the next day instead of never.
         self._auto_attempted: dict[str, tuple[date, date]] = {}
+        # mednr -> {"due": ISO date, "sent": ISO date} of renewal requests still pending.
+        self._requests: dict[str, dict[str, str]] = {}
+        self._requests_store = requests_store(hass, entry.entry_id)
+        self._requests_dirty = False
         # Regular opening hours; they rarely change, so fetched once a day.
         self.hours: OpeningHours | None = None
         self._hours_day: date | None = None
@@ -103,6 +126,64 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
     def today(self) -> date:
         return dt_util.now().date()
 
+    async def async_load_requests(self) -> None:
+        self._requests = dict(await self._requests_store.async_load() or {})
+
+    def pending_until(self, sent: date) -> date:
+        """Last day a request sent on `sent` counts as pending: the library's second opening
+        day after it, so staff had a full working day for it."""
+        if self.hours is not None:
+            day, open_days = sent, 0
+            for _ in range(14):
+                day += timedelta(days=1)
+                hours = self.hours.days.get(day.weekday())
+                if hours and (hours.intervals or hours.conditional):
+                    open_days += 1
+                    if open_days == PENDING_OPEN_DAYS:
+                        return day
+        return sent + timedelta(days=PENDING_FALLBACK_DAYS)
+
+    def _track_requests(self, account: Account) -> Account:
+        """Mark items with a pending request, which Findus itself soon stops showing."""
+        today = self.today()
+        loans = {l.mednr: l for l in account.loans}
+        changed = False
+        for mednr, req in list(self._requests.items()):
+            loan = loans.get(mednr)
+            if loan is None or loan.due.isoformat() != req["due"]:  # renewed or returned
+                del self._requests[mednr]
+                changed = True
+        for loan in account.loans:
+            req = self._requests.get(loan.mednr)
+            if req is None and loan.renew_requested:  # e.g. requested on the website
+                req = self._requests[loan.mednr] = {
+                    "due": loan.due.isoformat(), "sent": today.isoformat()
+                }
+                changed = True
+            # A reason not to renew from the library (e.g. reserved) wins over our record.
+            if req is None or not (loan.renewable or loan.renew_requested):
+                continue
+            sent = date.fromisoformat(req["sent"])
+            if today <= self.pending_until(sent):
+                loan.renewable = False
+                loan.renew_requested = True
+                loan.renew_requested_on = sent
+        self._requests_dirty |= changed
+        return account
+
+    def _record_requests(self, outcomes: list[RenewOutcome]) -> None:
+        today = self.today().isoformat()
+        for o in outcomes:
+            if o.status == "requested":
+                self._requests[o.mednr] = {"due": o.old_due.isoformat(), "sent": today}
+                self._requests_dirty = True
+
+    async def _async_save_requests(self) -> None:
+        """Written right away: a delayed save would be lost when the entry reloads."""
+        if self._requests_dirty:
+            self._requests_dirty = False
+            await self._requests_store.async_save(self._requests)
+
     async def _async_update_data(self) -> Account:
         try:
             account = await self.client.fetch()
@@ -111,7 +192,9 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
         except (FindusError, aiohttp.ClientError, TimeoutError) as err:
             raise UpdateFailed(str(err)) from err
         await self._async_update_hours()
-        return await self._async_auto_renew(account)
+        account = await self._async_auto_renew(self._track_requests(account))
+        await self._async_save_requests()
+        return account
 
     async def _async_update_hours(self) -> None:
         """Never fails the poll: the account matters more; retried on the next one."""
@@ -125,7 +208,10 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
         self._hours_day = self.today()
 
     def auto_renew_targets(self, account: Account) -> list[str]:
-        """Renewable loans inside the auto-renew window not tried today for this due date."""
+        """Renewable loans inside the auto-renew window not tried today for this due date.
+
+        Expects an account passed through _track_requests: pending requests are not renewable.
+        """
         opts = self.entry.options
         if not opts.get(CONF_AUTO_RENEW, False):
             return []
@@ -155,8 +241,9 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
             # Never fail the poll because of auto-renew; retried tomorrow.
             _LOGGER.warning("Auto-renew for entry %s failed: %s", self.entry.entry_id, err)
             return account
+        self._record_requests(outcomes)
         self._after_renew(outcomes, "auto")
-        return renewed
+        return self._track_requests(renewed)
 
     @callback
     def _cancel_recheck(self) -> None:
@@ -167,14 +254,24 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
     async def async_renew(
         self, mednrs: list[str] | None = None, categories: list[str] | None = None
     ) -> list[RenewOutcome]:
-        """Renew items (default: all renewable), optionally restricted to media categories."""
-        if categories:
+        """Renew items (default: all renewable), optionally restricted to media categories.
+
+        Without explicit media ids, items with a pending request are left out so the library
+        does not get the same request twice. Explicit ids are always sent.
+        """
+        if not mednrs:
             mednrs = [
                 l.mednr
                 for l in (self.data.loans if self.data else [])
-                if l.category in categories and (not mednrs or l.mednr in mednrs)
+                if l.renewable and (not categories or l.category in categories)
             ]
             if not mednrs:  # an empty list would mean "renew everything" to the client
+                self._after_renew([], "manual")
+                return []
+        elif categories:
+            loans = {l.mednr: l for l in (self.data.loans if self.data else [])}
+            mednrs = [m for m in mednrs if m in loans and loans[m].category in categories]
+            if not mednrs:
                 self._after_renew([], "manual")
                 return []
         try:
@@ -189,6 +286,9 @@ class FindusCoordinator(DataUpdateCoordinator[Account]):
                 translation_key="renew_failed",
                 translation_placeholders={"error": str(err) or type(err).__name__},
             ) from err
+        self._record_requests(outcomes)
+        account = self._track_requests(account)
+        await self._async_save_requests()
         self.async_set_updated_data(account)
         self._after_renew(outcomes, "manual")
         if outcomes and all(o.status == "failed" for o in outcomes):

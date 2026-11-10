@@ -2,7 +2,7 @@
  * Findus OPAC card: loan list with due dates and a renew button.
  * Served and auto-registered by the findus_opac integration; no build step, no dependencies.
  */
-const CARD_VERSION = "0.9.0";
+const CARD_VERSION = "0.9.1";
 const DOMAIN = "findus_opac";
 
 const ICONS = {
@@ -37,6 +37,7 @@ const TEXT = {
     overdueDays: (n) => (n === 1 ? "seit 1 Tag überfällig" : `seit ${n} Tagen überfällig`),
     renewable: "verlängerbar",
     pending: "Verlängerung beantragt",
+    pendingOn: (d) => `Verlängerung beantragt am ${d}`,
     block: {
       limit: "Verlängerungen ausgeschöpft",
       reserved: "Vorbestellt",
@@ -81,6 +82,7 @@ const TEXT = {
     overdueDays: (n) => (n === 1 ? "1 day overdue" : `${n} days overdue`),
     renewable: "renewable",
     pending: "renewal requested",
+    pendingOn: (d) => `renewal requested on ${d}`,
     block: {
       limit: "Renewal limit reached",
       reserved: "Reserved",
@@ -305,7 +307,13 @@ class FindusOpacCard extends HTMLElement {
             <div class="date">${esc(fmtDate(i.due))}</div>
             <div class="left">${esc(dueText(i.days_left))}</div>
             ${i.renewable ? `<span class="chip">${esc(t.renewable)}</span>` : ""}
-            ${i.renew_requested ? `<span class="chip pending">${esc(t.pending)}</span>` : ""}
+            ${
+              i.renew_requested
+                ? `<span class="chip pending">${esc(i.renew_requested_on
+                    ? t.pendingOn(new Date(`${i.renew_requested_on}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "numeric" }))
+                    : t.pending)}</span>`
+                : ""
+            }
             ${
               t.block[i.renew_block]
                 ? `<span class="chip block ${i.renew_block === "too_early" ? "early" : ""}" title="${esc(i.note)}">${esc(t.block[i.renew_block])}</span>`

@@ -169,3 +169,12 @@ test("config needs at least one loans sensor and entities as a list", () => {
   assert.throws(() => new Card().setConfig({ entity: "sensor.a", entities: "sensor.b" }), /must be a list/);
   assert.doesNotThrow(() => new Card().setConfig({ entities: ["sensor.a"] }));
 });
+
+test("a pending request shows the day it was sent, without a renew button", () => {
+  const hass = makeHass([
+    ["Lena", "alzey", [item("A", "2026-11-12", 3, { renew_requested: true, renew_requested_on: "2026-11-09" })]],
+  ]);
+  const html = render({ entity: "sensor.lena_loans" }, hass).shadowRoot.innerHTML;
+  assert.match(html, /Verlängerung beantragt am 9\.11\./);
+  assert.doesNotMatch(html, /class="icon-btn item-renew"/);
+});
