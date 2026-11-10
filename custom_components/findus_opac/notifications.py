@@ -42,6 +42,10 @@ TEXT_PREFIX = "notify_"
 Texts = Mapping[str, str]
 
 
+def notified_store(hass: HomeAssistant, entry_id: str) -> Store[dict[str, str]]:
+    return Store(hass, 1, f"{DOMAIN}.notified.{entry_id}")
+
+
 async def async_load_texts(hass: HomeAssistant, language: str) -> dict[str, str]:
     """Notification texts in `language`, English for missing keys: {key without prefix: text}."""
     raw = await async_get_translations(hass, language, "exceptions", [DOMAIN])
@@ -202,7 +206,7 @@ class FindusNotifier:
             str(opts.get(CONF_NOTIFY_TIME, DEFAULT_NOTIFY_TIME))
         ) or time(8, 0)
         self.action = f"{NOTIFY_ACTION_PREFIX}{self.entry_id}"
-        self._store: Store[dict[str, str]] = Store(hass, 1, f"{DOMAIN}.notified.{self.entry_id}")
+        self._store = notified_store(hass, self.entry_id)
         self._sent: dict[str, str] | None = None
 
     async def _async_texts(self) -> dict[str, str]:

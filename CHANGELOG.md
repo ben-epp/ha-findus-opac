@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.1 – 2026-11-10
+
+- **Verlängerungsanträge doppelt gestellt:** Findus zeigt ein Medium schon nach dem nächsten
+  Datenabgleich wieder als verlängerbar, obwohl die Bücherei den Antrag noch nicht bearbeitet
+  hat – der Antrag geht per E-Mail an die Bücherei und wird von Hand erledigt. 0.8.0 hat ihn
+  dann am nächsten Tag noch einmal gestellt. Jetzt merkt sich die Integration jeden Antrag,
+  auch über Neustarts hinweg, und zeigt „Verlängerung beantragt am …“, bis sich das
+  Rückgabedatum verschiebt. Weder automatisches Verlängern noch „Alle verlängern“ stellen ihn
+  bis dahin erneut; erst nach zwei Öffnungstagen ohne neues Datum einmal. Auch auf der Webseite
+  gestellte Anträge werden erkannt.
+- Beim Löschen eines Kontos werden auch die gespeicherten Anträge und Erinnerungen gelöscht.
+
 ## 0.9.0 – 2026-11-09
 
 - **Familienansicht:** eine Karte für mehrere Ausweise. Unter „Weitere Ausleihen-Sensoren“

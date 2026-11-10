@@ -24,6 +24,7 @@ def loan_dict(loan: Loan, today: date) -> dict[str, Any]:
         "days_left": loan.days_left(today),
         "renewable": loan.renewable,
         "renew_requested": loan.renew_requested,
+        "renew_requested_on": loan.renew_requested_on.isoformat() if loan.renew_requested_on else None,
         "note": loan.note,
         "renew_block": loan.renew_block,
         "cover": loan.cover_url,

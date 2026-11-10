@@ -194,8 +194,8 @@ können sie abweichen, darauf weist die Nachricht auch hin.
 
 Unter **Konfigurieren** lässt sich **Automatisch verlängern** einschalten. Dann beantragt die
 Integration die Verlängerung von selbst, wenn ein Medium bald fällig und verlängerbar ist –
-pro Medium nur einmal. Lässt die Bücherei den Antrag verfallen, versucht sie es am nächsten Tag
-noch einmal.
+pro Medium nur einmal. Hat sich das Rückgabedatum nach zwei Öffnungstagen der Bücherei noch nicht
+verschoben, stellt sie den Antrag ein zweites Mal.
 
 - **Zeitraum für automatisches Verlängern** (Standard 2 Tage): so viele Tage vor der
   Rückgabe wird verlängert.
@@ -216,8 +216,11 @@ Rückgabedatum. Wer früh verlängert, verschenkt also Leihzeit – kurz vorher 
 - **Die Daten sind ein paar Stunden alt.** Findus ist nur ein Spiegel des Büchereisystems,
   das mehrmals täglich hochgeladen wird. Was du gerade am Tresen zurückgegeben hast, steht
   vielleicht noch eine Weile in der Liste. Öfter abfragen hilft da nicht.
-- **Verlängern ist ein Antrag.** Die Bücherei bestätigt ihn sofort, die neue Frist erscheint
-  aber oft erst beim nächsten Abgleich. Bis dahin steht beim Medium „Verlängerung beantragt“.
+- **Verlängern ist ein Antrag.** Findus schickt ihn per E-Mail an die Bücherei, und das Personal
+  verlängert von Hand während der Öffnungszeiten. Auf der Webseite der Bücherei sieht das Medium
+  schon nach dem nächsten Datenabgleich wieder verlängerbar aus, obwohl der Antrag noch
+  wartet. Die Integration merkt sich deshalb jeden Antrag und zeigt „Verlängerung beantragt am …“,
+  bis sich das Rückgabedatum verschiebt – und stellt ihn bis dahin nicht noch einmal.
 - **Nicht alles ist verlängerbar.** Die Bücherei entscheidet: meist erst ab 14 Tagen vor der
   Rückgabe, nicht bei Vorbestellungen und nur 2–3 Mal pro Medium. Den Grund zeigt die Karte
   direkt am Medium.

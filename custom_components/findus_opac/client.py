@@ -75,6 +75,7 @@ class Loan:
     cover_url: str = ""
     series: str = ""
     renew_requested: bool = False  # Verlängerungsantrag pending until the next library sync
+    renew_requested_on: date | None = None  # day the pending request was sent, if known
 
     @property
     def renew_block(self) -> str:
