@@ -10,9 +10,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .client import Loan
 from .const import CONF_ACCOUNT_NAME, CONF_SUBDOMAIN, DOMAIN
 from .coordinator import FindusCoordinator
+from .due import due_status
 
 
-def loan_dict(loan: Loan, today: date) -> dict[str, Any]:
+def loan_dict(loan: Loan, today: date, soon_days: int) -> dict[str, Any]:
     """Serialize a loan for state attributes."""
     return {
         "mednr": loan.mednr,
@@ -22,6 +23,7 @@ def loan_dict(loan: Loan, today: date) -> dict[str, Any]:
         "category": loan.category,
         "due": loan.due.isoformat(),
         "days_left": loan.days_left(today),
+        "status": due_status(loan, today, soon_days),
         "renewable": loan.renewable,
         "renew_requested": loan.renew_requested,
         "renew_requested_on": loan.renew_requested_on.isoformat() if loan.renew_requested_on else None,
@@ -32,9 +34,9 @@ def loan_dict(loan: Loan, today: date) -> dict[str, Any]:
     }
 
 
-def loan_items(loans: list[Loan], today: date) -> list[dict[str, Any]]:
+def loan_items(loans: list[Loan], today: date, soon_days: int) -> list[dict[str, Any]]:
     """Loans as attribute dicts, soonest due first."""
-    return [loan_dict(l, today) for l in sorted(loans, key=lambda l: (l.due, l.title))]
+    return [loan_dict(l, today, soon_days) for l in sorted(loans, key=lambda l: (l.due, l.title))]
 
 
 class FindusEntity(CoordinatorEntity[FindusCoordinator]):

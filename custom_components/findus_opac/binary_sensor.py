@@ -18,6 +18,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import CARD_EXPIRY_WARN_DAYS
 from .coordinator import FindusConfigEntry, FindusCoordinator
+from .due import card_expiry, due_status
 from .entity import FindusEntity, loan_items
 
 PARALLEL_UPDATES = 0
@@ -33,7 +34,7 @@ class FindusBinarySensorEntityDescription(BinarySensorEntityDescription):
 
 def _overdue(c: FindusCoordinator) -> list:
     today = c.today()
-    return [l for l in c.data.loans if l.days_left(today) < 0]
+    return [l for l in c.data.loans if due_status(l, today, c.due_soon_days) == "overdue"]
 
 
 def _renewable(c: FindusCoordinator) -> list:
@@ -42,8 +43,8 @@ def _renewable(c: FindusCoordinator) -> list:
 
 def _card_expires_soon(c: FindusCoordinator) -> bool | None:
     """Unknown (None) when the page shows no expiry banner."""
-    until = c.data.card_valid_until
-    return None if until is None else (until - c.today()).days <= CARD_EXPIRY_WARN_DAYS
+    expiry = card_expiry(c.data.card_valid_until, c.today())
+    return None if expiry is None else expiry in ("expired", "soon")
 
 
 BINARY_SENSORS: tuple[FindusBinarySensorEntityDescription, ...] = (
@@ -52,13 +53,13 @@ BINARY_SENSORS: tuple[FindusBinarySensorEntityDescription, ...] = (
         translation_key="has_overdue",
         device_class=BinarySensorDeviceClass.PROBLEM,
         is_on_fn=lambda c: bool(_overdue(c)),
-        attrs_fn=lambda c: {"items": loan_items(_overdue(c), c.today())},
+        attrs_fn=lambda c: {"items": loan_items(_overdue(c), c.today(), c.due_soon_days)},
     ),
     FindusBinarySensorEntityDescription(
         key="can_renew",
         translation_key="can_renew",
         is_on_fn=lambda c: bool(_renewable(c)),
-        attrs_fn=lambda c: {"items": loan_items(_renewable(c), c.today())},
+        attrs_fn=lambda c: {"items": loan_items(_renewable(c), c.today(), c.due_soon_days)},
     ),
     FindusBinarySensorEntityDescription(
         key="card_expires_soon",

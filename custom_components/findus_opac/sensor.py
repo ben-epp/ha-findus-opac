@@ -21,6 +21,7 @@ from homeassistant.util import dt as dt_util
 from .client import Loan
 from .const import CATEGORIES
 from .coordinator import FindusConfigEntry, FindusCoordinator
+from .due import due_status
 from .entity import FindusEntity, loan_items
 
 PARALLEL_UPDATES = 0
@@ -43,7 +44,7 @@ def _count(pred: LoanFilter) -> Callable[[FindusCoordinator], int]:
 
 
 def _items(pred: LoanFilter) -> Callable[[FindusCoordinator], dict[str, Any]]:
-    return lambda c: {"items": loan_items(_select(c, pred), c.today())}
+    return lambda c: {"items": loan_items(_select(c, pred), c.today(), c.due_soon_days)}
 
 
 def _next_due(c: FindusCoordinator) -> date | None:
@@ -69,15 +70,15 @@ def _in_category(category: str) -> LoanFilter:
 
 
 def _due_today(c: FindusCoordinator, l: Loan) -> bool:
-    return l.days_left(c.today()) == 0
+    return due_status(l, c.today(), c.due_soon_days) == "today"
 
 
 def _due_soon(c: FindusCoordinator, l: Loan) -> bool:
-    return 0 <= l.days_left(c.today()) <= c.due_soon_days
+    return due_status(l, c.today(), c.due_soon_days) in ("today", "soon")
 
 
 def _overdue(c: FindusCoordinator, l: Loan) -> bool:
-    return l.days_left(c.today()) < 0
+    return due_status(l, c.today(), c.due_soon_days) == "overdue"
 
 
 def _renewable(c: FindusCoordinator, l: Loan) -> bool:

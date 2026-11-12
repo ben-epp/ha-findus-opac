@@ -35,7 +35,7 @@ const item = (title, due, days_left, extra = {}) => ({
   title, due, days_left, category: "book", media_type: "Buch", mednr: title, renewable: false, ...extra,
 });
 
-/** A hass object with one device per account: [name, library, items, cardDays]. */
+/** A hass object with one device per account: [name, library, items, cardDays, cardSoon]. */
 function makeHass(accounts) {
   const hass = { states: {}, entities: {}, devices: {}, locale: { language: "de" }, calls: [] };
   hass.callService = async (domain, service, data) => hass.calls.push([domain, service, data]);
@@ -43,7 +43,7 @@ function makeHass(accounts) {
     hass.entities[id] = { entity_id: id, device_id: device, platform: "findus_opac", translation_key: key };
     hass.states[id] = { entity_id: id, state, attributes, last_updated: "x" };
   };
-  for (const [name, library, items, cardDays = 400] of accounts) {
+  for (const [name, library, items, cardDays = 400, cardSoon] of accounts) {
     const slug = name.toLowerCase();
     const device = `dev_${slug}`;
     hass.devices[device] = { name, model: library, primary_config_entry: `entry_${slug}` };
@@ -51,6 +51,8 @@ function makeHass(accounts) {
     add(`button.${slug}_renew_all`, device, "renew_all", "unknown");
     add(`button.${slug}_sync`, device, "sync", "unknown");
     add(`sensor.${slug}_card`, device, "card_valid_until", "2027-01-01", { days_left: cardDays });
+    add(`binary_sensor.${slug}_card_expires_soon`, device, "card_expires_soon",
+      cardSoon ?? (cardDays <= 30 ? "on" : "off"));
     add(`sensor.${slug}_last_sync`, device, "last_sync", new Date().toISOString());
     add(`binary_sensor.${slug}_open`, device, "open_now", "on", {
       hours: { mon: ["09:00-12:00"] }, closes_at: "12:00",
@@ -118,6 +120,17 @@ test("family view shows only library cards that expire soon, with the name", () 
   const html = render({ entity: "sensor.lena_loans", entities: ["sensor.max_loans"] }, hass).shadowRoot.innerHTML;
   assert.match(html, /Max: Ausweis gültig bis/);
   assert.doesNotMatch(html, /Lena: Ausweis/);
+});
+
+test("card expiry takes its colour from the card_expires_soon binary sensor", () => {
+  const on = makeHass([["Lena", "alzey", [], 100, "on"]]);
+  const soonHtml = render({ entity: "sensor.lena_loans" }, on).shadowRoot.innerHTML;
+  assert.match(soonHtml, /class="cardline soon"/);
+
+  const off = makeHass([["Lena", "alzey", [], 5, "off"]]);
+  const ok = render({ entity: "sensor.lena_loans" }, off).shadowRoot.innerHTML;
+  assert.match(ok, /class="cardline ok"/);
+  assert.doesNotMatch(ok, /class="cardline soon"/);
 });
 
 test("group by person", () => {
