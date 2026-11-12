@@ -143,6 +143,52 @@ max_height: 400             # list height in px, scrollable beyond; 0 = unlimite
 If the card looks unchanged after an update, reload the page without cache (Ctrl+Shift+R; in
 the app: Companion app settings → clear frontend cache).
 
+### More cards
+
+Besides the big card there are four smaller ones for single questions. Like the big card they
+take `entity` and optionally `entities` for the family view.
+
+**Action needed:** only overdue, due-today and soon-due items across all cards, with a renew
+button per item.
+
+```yaml
+type: custom:findus-opac-action-card
+entity: sensor.lena_loans
+entities:                   # optional, for the family view
+  - sensor.max_loans
+show_renew: true            # renew buttons
+show_covers: false          # cover images
+```
+
+**Return trip:** what has to go back on the next trip to the library – items that are not
+renewable and fall due before the opening day after next.
+
+```yaml
+type: custom:findus-opac-return-card
+entity: sensor.lena_loans
+show_covers: false
+```
+
+**Library:** opening hours, notice and card validity without the loan list, once per library.
+
+```yaml
+type: custom:findus-opac-library-card
+entity: sensor.lena_loans
+show_hours: true
+show_announcement: true
+show_card_expiry: true
+show_last_sync: true
+```
+
+**Summary:** one line with the number of items, the next due date and warnings about overdue
+and soon-due items.
+
+```yaml
+type: custom:findus-opac-chip-card
+entity: sensor.lena_loans
+title: Lena                # optional prefix on the line
+```
+
 ## Reminders on your phone
 
 **Settings → Devices & services → Findus Internet-OPAC → Configure**
