@@ -37,6 +37,7 @@ NOTIFY_KEEP_DAYS = 60
 
 # Library card expiry: "expires soon" binary sensor turns on this many days before.
 CARD_EXPIRY_WARN_DAYS = 30
+CARD_REMINDER_DAYS = (CARD_EXPIRY_WARN_DAYS, 7)  # digest reminders before the card expires
 
 # Loan.category values -> count sensor keys
 CATEGORIES = ("book", "tonie", "cd", "video", "game")

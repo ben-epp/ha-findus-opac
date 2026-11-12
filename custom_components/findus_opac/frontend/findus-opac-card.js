@@ -235,6 +235,7 @@ class FindusOpacCard extends HTMLElement {
       renewId: find("button", "renew_all"),
       syncId: find("button", "sync"),
       card: state("sensor", "card_valid_until"),
+      cardSoon: state("binary_sensor", "card_expires_soon"),
       notice: state("sensor", "announcement"),
       sync: state("sensor", "last_sync"),
       open: state("binary_sensor", "open_now"),
@@ -260,7 +261,7 @@ class FindusOpacCard extends HTMLElement {
     const key = JSON.stringify([
       all.map((a) => [
         a.st?.last_updated, a.st?.state, a.name, a.renewId, a.syncId, a.entryId, a.card?.state,
-        a.notice?.last_updated, a.sync?.state, a.open?.last_updated,
+        a.cardSoon?.state, a.notice?.last_updated, a.sync?.state, a.open?.last_updated,
       ]),
       [...this._noticeOpen], [...this._hoursOpen], this._busy, this._busyItem, this._syncing, this._config, lang(hass), [...(this._open || [])],
     ]);
@@ -390,7 +391,11 @@ class FindusOpacCard extends HTMLElement {
     for (const a of this._config.show_card_expiry ? accounts : []) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(a.card?.state || "")) continue;
       const days = Number(a.card.attributes?.days_left);
-      const lvl = days < 0 ? "overdue" : days <= 30 ? "soon" : "ok";
+      // The card_expires_soon binary sensor owns the threshold; older setups without it
+      // still fall back to the date the card page shows.
+      const lvl = days < 0 ? "overdue"
+        : a.cardSoon ? (a.cardSoon.state === "on" ? "soon" : "ok")
+        : days <= 30 ? "soon" : "ok";
       if (family && lvl === "ok") continue;
       const d = new Date(`${a.card.state}T12:00:00`).toLocaleDateString(locale, {
         day: "numeric", month: "long", year: "numeric",

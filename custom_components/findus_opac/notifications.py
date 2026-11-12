@@ -17,6 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from .client import Loan, OpeningHours
 from .const import (
+    CARD_REMINDER_DAYS,
     CONF_NOTIFY_EVENTS,
     CONF_NOTIFY_SHOW_TITLES,
     CONF_NOTIFY_TARGETS,
@@ -29,11 +30,11 @@ from .const import (
     NOTIFY_KEEP_DAYS,
 )
 from .coordinator import FindusCoordinator
+from .due import due_status
 
 _LOGGER = logging.getLogger(__name__)
 
 MOBILE_ACTION_EVENT = "mobile_app_notification_action"
-CARD_THRESHOLDS = (30, 7)  # days before the library card expires
 
 # Texts live in translations/<lang>.json under "exceptions" (the only free-form text
 # section hassfest allows); keys start with this prefix, e.g. notify_title.
@@ -262,12 +263,12 @@ class FindusNotifier:
         kinds: dict[str, list[Loan]] = {"overdue": [], "due_today": [], "last_chance": [], "due_soon": []}
         new_keys: list[str] = []
         for loan in account.loans:
-            left = loan.days_left(today)
-            if left < 0:
+            status = due_status(loan, today, self.coordinator.due_soon_days)
+            if status == "overdue":
                 kind, key = "overdue", f"overdue:{loan.mednr}:{loan.due}:{today}"
-            elif left == 0:
+            elif status == "today":
                 kind, key = "due_today", f"due_today:{loan.mednr}:{loan.due}"
-            elif left <= self.coordinator.due_soon_days:
+            elif status == "soon":
                 kind, key = "due_soon", f"due_soon:{loan.mednr}:{loan.due}"
             else:
                 kind, key = "", ""
@@ -286,7 +287,7 @@ class FindusNotifier:
         until = account.card_valid_until
         if "card_expiry" in self.events and until is not None:
             left = (until - today).days
-            due_keys = [f"card{n}:{until}" for n in CARD_THRESHOLDS if left <= n]
+            due_keys = [f"card{n}:{until}" for n in CARD_REMINDER_DAYS if left <= n]
             if any(k not in sent for k in due_keys):
                 card_until = until
                 new_keys.extend(k for k in due_keys if k not in sent)
