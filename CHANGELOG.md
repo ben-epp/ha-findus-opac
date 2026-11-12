@@ -1,5 +1,16 @@
 # Changelog
 
+## Unveröffentlicht
+
+- **Neue Karte „Zu erledigen“:** zeigt nur überfällige, heute und bald fällige Medien aus
+  allen Ausweisen, mit Verlängern-Knopf pro Medium.
+- **Neue Karte „Zurückbringen“:** was auf dem nächsten Weg in die Bücherei mit muss – nicht
+  verlängerbare Medien, die vor dem übernächsten Öffnungstag fällig werden.
+- **Neue Karte „Bücherei“:** Öffnungszeiten, Mitteilung und Ausweis-Gültigkeit ohne
+  Medienliste, einmal pro Bücherei.
+- **Neue Karte „Kurzübersicht“:** eine Zeile mit Anzahl der Medien, nächster Rückgabe und
+  Warnungen zu überfälligen und bald fälligen Medien.
+
 ## 0.9.1 – 2026-11-10
 
 - **Verlängerungsanträge doppelt gestellt:** Findus zeigt ein Medium schon nach dem nächsten

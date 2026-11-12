@@ -145,6 +145,53 @@ max_height: 400             # Höhe der Liste in px, darüber scrollbar; 0 = unb
 Siehst du nach einem Update keine Änderung an der Karte, lade die Seite einmal ohne Cache
 neu (Strg+Umschalt+R, in der App: Einstellungen der Companion-App → Frontend-Cache leeren).
 
+### Weitere Karten
+
+Neben der großen Karte gibt es vier kleinere für einzelne Fragen. Sie nehmen wie die große
+Karte `entity` und optional `entities` für die Familienansicht.
+
+**Zu erledigen:** nur überfällige, heute und bald fällige Medien aus allen Ausweisen, mit
+Verlängern-Knopf pro Medium.
+
+```yaml
+type: custom:findus-opac-action-card
+entity: sensor.lena_ausleihen
+entities:                   # optional, für die Familienansicht
+  - sensor.max_ausleihen
+show_renew: true            # Verlängern-Knöpfe
+show_covers: false          # Coverbilder
+```
+
+**Zurückbringen:** was auf dem nächsten Weg in die Bücherei mit muss – nicht verlängerbare
+Medien, die vor dem übernächsten Öffnungstag fällig werden.
+
+```yaml
+type: custom:findus-opac-return-card
+entity: sensor.lena_ausleihen
+show_covers: false
+```
+
+**Bücherei:** Öffnungszeiten, Mitteilung und Ausweis-Gültigkeit ohne Medienliste, einmal
+pro Bücherei.
+
+```yaml
+type: custom:findus-opac-library-card
+entity: sensor.lena_ausleihen
+show_hours: true
+show_announcement: true
+show_card_expiry: true
+show_last_sync: true
+```
+
+**Kurzübersicht:** eine Zeile mit der Anzahl der Medien, der nächsten Rückgabe und
+Warnungen zu überfälligen und bald fälligen Medien.
+
+```yaml
+type: custom:findus-opac-chip-card
+entity: sensor.lena_ausleihen
+title: Lena                # optionaler Text am Anfang der Zeile
+```
+
 ## Erinnerungen aufs Handy
 
 **Einstellungen → Geräte & Dienste → Findus Internet-OPAC → Konfigurieren**
