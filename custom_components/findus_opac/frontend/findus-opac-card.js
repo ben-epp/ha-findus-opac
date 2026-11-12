@@ -61,6 +61,9 @@ const TEXT = {
     cats: { book: "Bücher", tonie: "Tonies", cd: "CDs", video: "Filme", game: "Spiele" },
     cardValid: (d) => `Ausweis gültig bis ${d}`,
     cardExpired: (d) => `Ausweis abgelaufen seit ${d}`,
+    nothingToDo: "Nichts zu erledigen",
+    nothingToReturn: "Nichts zurückzubringen",
+    dueSoonBadge: (n) => (n === 1 ? "1 bald fällig" : `${n} bald fällig`),
   },
   en: {
     syncAt: (d) => `Library data from ${d}`,
@@ -106,6 +109,9 @@ const TEXT = {
     cats: { book: "Books", tonie: "Tonies", cd: "CDs", video: "Videos", game: "Games" },
     cardValid: (d) => `Library card valid until ${d}`,
     cardExpired: (d) => `Library card expired on ${d}`,
+    nothingToDo: "Nothing to do",
+    nothingToReturn: "Nothing to bring back",
+    dueSoonBadge: (n) => (n === 1 ? "1 due soon" : `${n} due soon`),
   },
 };
 
@@ -269,7 +275,10 @@ const noticeBlock = (notice, lib, t, open, prefix = "") => {
 
 class FindusOpacCard extends HTMLElement {
   static getConfigElement() {
-    return document.createElement("findus-opac-card-editor");
+    const editor = document.createElement("findus-opac-card-editor");
+    editor.fields = CARD_FIELDS;
+    editor.defaults = DEFAULTS;
+    return editor;
   }
 
   static getStubConfig(hass) {
@@ -688,6 +697,501 @@ const STYLE = `<style>
   #renew[disabled] { opacity: .6; cursor: default; }
 </style>`;
 
+const COMPACT_STYLE = `<style>
+  .empty.done { display: flex; align-items: center; gap: 6px; min-height: 24px; }
+  .empty.done ha-icon { --mdc-icon-size: 20px; flex: none; color: var(--success-color, #43a047); }
+  .libblock { margin-top: 8px; }
+  .libblock + .libblock { border-top: 1px solid var(--divider-color); padding-top: 8px; }
+  .chiprow { display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; cursor: pointer; }
+  .chiprow .ctitle { font-weight: 500; }
+  .chiprow ha-icon { --mdc-icon-size: 22px; flex: none; }
+  .chiprow .count { flex: none; }
+  .chiprow .next { color: var(--secondary-text-color); overflow: hidden; text-overflow: ellipsis; }
+  .row.soon .date { color: var(--warning-color); }
+  .badge.soon { background: var(--warning-color); color: var(--text-primary-color, #fff); }
+</style>`;
+
+/** Category icon or cover, the way the big card shows an item. */
+const mediaIcon = (item, covers) =>
+  covers && /^https:\/\//.test(item.cover || "")
+    ? `<img class="cover" src="${esc(item.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer"
+         data-icon="${ICONS[item.category] || ICONS.book}">`
+    : `<ha-icon class="type" icon="${ICONS[item.category] || ICONS.book}"></ha-icon>`;
+
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+const isoDate = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/**
+ * The next two trips to the library for one account: O1 is the next opening, O2 the next
+ * day after it that is open (regular hours or a conditional day). A loan due before O2
+ * cannot be kept until the trip after next, so it belongs on the return list.
+ * Pure so tests can pass a fixed `now`; null when the hours are unusable.
+ */
+const returnWindow = (openAttrs, openState, now) => {
+  const hours = openAttrs?.hours;
+  if (!hours || !["on", "off"].includes(openState)) return null;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let o1;
+  if (openState === "on") {
+    o1 = today;
+  } else {
+    const next = openAttrs.next_open ? new Date(openAttrs.next_open) : null;
+    if (!next || isNaN(next)) return null;
+    o1 = new Date(next.getFullYear(), next.getMonth(), next.getDate());
+  }
+  const conditional = Array.isArray(openAttrs.conditional_days) ? openAttrs.conditional_days : [];
+  for (let i = 1; i <= 14; i++) {
+    const day = new Date(o1.getFullYear(), o1.getMonth(), o1.getDate() + i);
+    const key = WEEKDAYS[day.getDay()];
+    const times = hours[key];
+    if ((Array.isArray(times) && times.length) || conditional.includes(key)) {
+      return { o1: isoDate(o1), o2: isoDate(day) };
+    }
+  }
+  return null;
+};
+
+/** Shared plumbing for the compact cards: config, accounts, renew and toasts. */
+class FindusOpacCompactCard extends HTMLElement {
+  static getStubConfig(hass) {
+    return { entity: findLoanSensors(hass)[0] || "" };
+  }
+
+  setConfig(config) {
+    validateConfig(config);
+    this._config = { ...this.constructor.defaults, ...config };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  _entityIds() {
+    return entityIdsOf(this._config);
+  }
+
+  _accounts() {
+    return this._hass && this._config ? this._entityIds().map((e) => accountOf(this._hass, e)) : [];
+  }
+
+  /** Warnings for missing entities, worded like the big card. All missing means no body. */
+  _warnings(t) {
+    const all = this._accounts();
+    const present = all.filter((a) => a.st);
+    if (!present.length) {
+      return {
+        present,
+        empty: true,
+        html: `<div class="warn">${esc(t.missing(this._entityIds().join(", ")))}</div>`,
+      };
+    }
+    return {
+      present,
+      empty: false,
+      html: all.filter((a) => !a.st).map((a) => `<div class="warn">${esc(t.missing(a.entityId))}</div>`).join(""),
+    };
+  }
+
+  _bindItemRenew() {
+    this.shadowRoot.querySelectorAll("button.item-renew").forEach((btn) =>
+      btn.addEventListener("click", () => this._renewOne(btn.dataset.entry, btn.dataset.mednr)),
+    );
+  }
+
+  _bindNoticeToggles() {
+    this._noticeOpen ||= new Set();
+    this.shadowRoot.querySelectorAll("button.notice-toggle").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        const k = btn.dataset.lib;
+        if (this._noticeOpen.has(k)) this._noticeOpen.delete(k);
+        else this._noticeOpen.add(k);
+        this._render();
+      }),
+    );
+  }
+
+  async _renewOne(entryId, mednr) {
+    if (this._busyItem) return;
+    const t = TEXT[lang(this._hass)];
+    this._busyItem = `${entryId}:${mednr}`;
+    this._render();
+    try {
+      await renewItem(this._hass, entryId, mednr);
+      this._toast(t.renewed);
+    } catch (err) {
+      this._toast(`${t.failed}: ${err?.message || err}`);
+    } finally {
+      this._busyItem = undefined;
+      this._render();
+    }
+  }
+
+  _toast(message) {
+    this.dispatchEvent(new CustomEvent("hass-notification", { detail: { message }, bubbles: true, composed: true }));
+  }
+}
+
+/** Only the loans that need attention now. */
+class FindusOpacActionCard extends FindusOpacCompactCard {
+  static get defaults() {
+    return { show_renew: true, show_covers: false };
+  }
+
+  static getConfigElement() {
+    const editor = document.createElement("findus-opac-card-editor");
+    editor.fields = ACTION_FIELDS;
+    editor.defaults = this.defaults;
+    return editor;
+  }
+
+  getCardSize() {
+    return 1 + this._accounts().reduce((n, a) => n + a.items.length, 0);
+  }
+
+  getGridOptions() {
+    return { columns: 6, min_columns: 3, min_rows: 1 };
+  }
+
+  _render() {
+    if (!this._hass || !this._config) return;
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    const t = TEXT[lang(this._hass)];
+    const locale = this._hass.locale?.language || "de";
+    const { present, empty, html: warns } = this._warnings(t);
+    if (empty) {
+      this.shadowRoot.innerHTML = `<ha-card>${warns}</ha-card>${STYLE}${COMPACT_STYLE}`;
+      return;
+    }
+    const family = this._accounts().length > 1;
+    const items = present
+      .flatMap((a) => a.items.map((i) => ({ ...i, acct: a })))
+      .filter((i) => ["overdue", "today", "soon"].includes(i.status))
+      .sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : String(a.title).localeCompare(String(b.title))));
+
+    const row = (i) => `
+        <div class="row ${i.status === "overdue" ? "overdue" : "soon"}" title="${esc(i.note)}">
+          ${mediaIcon(i, this._config.show_covers)}
+          <div class="main">
+            <div class="name">${esc(i.title)}</div>
+            ${family ? `<div class="sub"><span class="owner">${esc(i.acct.name)}</span></div>` : ""}
+          </div>
+          <div class="due">
+            <div class="left">${esc(dueText(t, i.days_left))}</div>
+            ${
+              i.renew_requested
+                ? `<span class="chip pending">${esc(i.renew_requested_on
+                    ? t.pendingOn(new Date(`${i.renew_requested_on}T12:00:00`).toLocaleDateString(locale, { day: "numeric", month: "numeric" }))
+                    : t.pending)}</span>`
+                : ""
+            }
+            ${
+              t.block[i.renew_block]
+                ? `<span class="chip block ${i.renew_block === "too_early" ? "early" : ""}" title="${esc(i.note)}">${esc(t.block[i.renew_block])}</span>`
+                : ""
+            }
+            ${
+              i.renewable && i.acct.entryId && this._config.show_renew
+                ? `<button class="icon-btn item-renew" data-entry="${esc(i.acct.entryId)}" data-mednr="${esc(i.mednr)}" title="${esc(t.renewOne)}"
+                     ${this._busyItem ? "disabled" : ""}>
+                     <ha-icon icon="${this._busyItem === `${i.acct.entryId}:${i.mednr}` ? "mdi:timer-sand" : "mdi:book-refresh"}"></ha-icon>
+                   </button>`
+                : ""
+            }
+          </div>
+        </div>`;
+
+    this.shadowRoot.innerHTML = `<ha-card>
+        ${warns}
+        ${this._config.title ? `<div class="header"><div class="title">${esc(this._config.title)}</div></div>` : ""}
+        ${
+          items.length
+            ? items.map(row).join("")
+            : `<div class="empty done"><ha-icon icon="mdi:check-circle-outline"></ha-icon>${esc(t.nothingToDo)}</div>`
+        }
+      </ha-card>${STYLE}${COMPACT_STYLE}`;
+    this._bindItemRenew();
+    bindCoverFallbacks(this.shadowRoot);
+  }
+}
+
+/** What has to go back on the next trip to the library. */
+class FindusOpacReturnCard extends FindusOpacCompactCard {
+  static get defaults() {
+    return { show_covers: false };
+  }
+
+  static getConfigElement() {
+    const editor = document.createElement("findus-opac-card-editor");
+    editor.fields = RETURN_FIELDS;
+    editor.defaults = this.defaults;
+    return editor;
+  }
+
+  getCardSize() {
+    return 2;
+  }
+
+  getGridOptions() {
+    return { columns: 6, min_columns: 3, min_rows: 1 };
+  }
+
+  _render() {
+    if (!this._hass || !this._config) return;
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    const t = TEXT[lang(this._hass)];
+    const locale = this._hass.locale?.language || "de";
+    const { present, empty, html: warns } = this._warnings(t);
+    if (empty) {
+      this.shadowRoot.innerHTML = `<ha-card>${warns}</ha-card>${STYLE}${COMPACT_STYLE}`;
+      return;
+    }
+    const family = this._accounts().length > 1;
+    const now = new Date();
+    const rows = [];
+    for (const a of present) {
+      const win = returnWindow(a.open?.attributes, a.open?.state, now);
+      for (const i of a.items) {
+        const listed = win
+          ? i.status === "overdue" || (!i.renewable && !i.renew_requested && i.due < win.o2)
+          : ["overdue", "today", "soon"].includes(i.status) && !i.renewable && !i.renew_requested;
+        if (listed) rows.push({ ...i, acct: a });
+      }
+    }
+    rows.sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : String(a.title).localeCompare(String(b.title))));
+
+    const libraries = new Map();
+    for (const a of present) if (!libraries.has(a.library)) libraries.set(a.library, a);
+    const named = libraries.size > 1;
+
+    const row = (i) => `
+        <div class="row ${i.status === "overdue" ? "overdue" : ["today", "soon"].includes(i.status) ? "soon" : ""}">
+          ${mediaIcon(i, this._config.show_covers)}
+          <div class="main">
+            <div class="name">${esc(i.title)}</div>
+            ${family ? `<div class="sub"><span class="owner">${esc(i.acct.name)}</span></div>` : ""}
+          </div>
+          <div class="due"><div class="date">${esc(formatDate(locale, i.due))}</div></div>
+        </div>`;
+
+    let body = "";
+    for (const [lib, a] of libraries) {
+      const prefix = named && lib ? `${lib}: ` : "";
+      body += `<div class="hstatus ${a.open?.state === "on" ? "isopen" : ""}">
+          <ha-icon icon="mdi:clock-outline"></ha-icon>${esc(prefix + hoursStatus(t, a.open, locale))}
+        </div>`;
+      body += rows.filter((r) => r.acct.library === lib).map(row).join("");
+    }
+    if (!rows.length) body += `<div class="empty">${esc(t.nothingToReturn)}</div>`;
+
+    this.shadowRoot.innerHTML = `<ha-card>
+        ${warns}
+        ${this._config.title ? `<div class="header"><div class="title">${esc(this._config.title)}</div></div>` : ""}
+        ${body}
+      </ha-card>${STYLE}${COMPACT_STYLE}`;
+    bindCoverFallbacks(this.shadowRoot);
+  }
+}
+
+/** Opening hours, notice and card validity, without the loan list. */
+class FindusOpacLibraryCard extends FindusOpacCompactCard {
+  static get defaults() {
+    return { show_hours: true, show_announcement: true, show_card_expiry: true, show_last_sync: true };
+  }
+
+  static getConfigElement() {
+    const editor = document.createElement("findus-opac-card-editor");
+    editor.fields = LIBRARY_FIELDS;
+    editor.defaults = this.defaults;
+    return editor;
+  }
+
+  getCardSize() {
+    return 4;
+  }
+
+  getGridOptions() {
+    return { columns: 6, min_columns: 4, min_rows: 2 };
+  }
+
+  _render() {
+    if (!this._hass || !this._config) return;
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    const t = TEXT[lang(this._hass)];
+    const locale = this._hass.locale?.language || "de";
+    const all = this._accounts();
+    const { present, empty, html: warns } = this._warnings(t);
+    if (empty) {
+      this.shadowRoot.innerHTML = `<ha-card>${warns}</ha-card>${STYLE}${COMPACT_STYLE}`;
+      return;
+    }
+    this._noticeOpen ||= new Set();
+
+    // Hours, announcement and data date belong to the library: once per library.
+    const libraries = new Map();
+    for (const a of present) {
+      if (!libraries.has(a.library)) libraries.set(a.library, []);
+      libraries.get(a.library).push(a);
+    }
+    const named = libraries.size > 1;
+    const family = all.length > 1;
+
+    let blocks = "";
+    for (const [lib, accts] of libraries) {
+      const a = accts[0];
+      const prefix = named && lib ? `${lib}: ` : "";
+      const ha = a.open?.attributes;
+      let block = `<div class="libblock">
+          <div class="hstatus ${a.open?.state === "on" ? "isopen" : ""}">
+            <ha-icon icon="mdi:clock-outline"></ha-icon>${esc(prefix + hoursStatus(t, a.open, locale))}
+          </div>`;
+      if (this._config.show_hours && ha?.hours && a.open?.state !== "unavailable") {
+        const dayName = (i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" }); // 2024-01-01 is a Monday
+        const week = Object.entries(ha.hours).map(([day, times], i) => `<tr><td>${esc(dayName(i))}</td><td>${esc(
+          (ha.conditional_days || []).includes(day) ? [...times, t.hoursCond].join(", ") : times.join(", ") || t.hoursDayClosed,
+        )}</td></tr>`).join("");
+        block += `<table class="hweek">${week}</table>${ha.note ? `<div class="hint">${esc(ha.note)}</div>` : ""}`;
+      }
+      if (this._config.show_hours) block += `<div class="hint">${esc(t.hoursHint)}</div>`;
+      if (this._config.show_announcement) {
+        block += noticeBlock(a.notice, lib, t, this._noticeOpen.has(lib), prefix);
+      }
+      if (this._config.show_card_expiry) {
+        for (const acct of accts) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(acct.card?.state || "")) continue;
+          const days = Number(acct.card.attributes?.days_left);
+          const lvl = days < 0 ? "overdue"
+            : acct.cardSoon ? (acct.cardSoon.state === "on" ? "soon" : "ok")
+            : days <= 30 ? "soon" : "ok";
+          if (lvl === "ok") continue;
+          const d = new Date(`${acct.card.state}T12:00:00`).toLocaleDateString(locale, {
+            day: "numeric", month: "long", year: "numeric",
+          });
+          block += `<div class="cardline ${lvl}"><ha-icon icon="mdi:card-account-details"></ha-icon>${esc(
+            `${family ? `${acct.name}: ` : ""}${days < 0 ? t.cardExpired(d) : t.cardValid(d)}`,
+          )}</div>`;
+        }
+      }
+      if (this._config.show_last_sync) {
+        const synced = new Date(a.sync?.state || "");
+        if (!isNaN(synced)) {
+          const stale = Date.now() - synced.getTime() > SYNC_STALE_DAYS * 86400000;
+          block += `<div class="cardline ${stale ? "soon" : "ok"}"><ha-icon icon="mdi:database-clock-outline"></ha-icon>${esc(
+            prefix + t.syncAt(synced.toLocaleString(locale, { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })),
+          )}</div>`;
+        }
+      }
+      block += `</div>`;
+      blocks += block;
+    }
+
+    this.shadowRoot.innerHTML = `<ha-card>
+        ${warns}
+        ${this._config.title ? `<div class="header"><div class="title">${esc(this._config.title)}</div></div>` : ""}
+        ${blocks}
+      </ha-card>${STYLE}${COMPACT_STYLE}`;
+    this._bindNoticeToggles();
+  }
+}
+
+/** One line: loans, next due date, warnings. */
+class FindusOpacChipCard extends FindusOpacCompactCard {
+  static get defaults() {
+    return {};
+  }
+
+  static getConfigElement() {
+    const editor = document.createElement("findus-opac-card-editor");
+    editor.fields = CHIP_FIELDS;
+    editor.defaults = this.defaults;
+    return editor;
+  }
+
+  getCardSize() {
+    return 1;
+  }
+
+  getGridOptions() {
+    return { columns: 6, min_columns: 3, rows: 1, min_rows: 1 };
+  }
+
+  _render() {
+    if (!this._hass || !this._config) return;
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    const t = TEXT[lang(this._hass)];
+    const locale = this._hass.locale?.language || "de";
+    const { present, empty, html: warns } = this._warnings(t);
+    if (empty) {
+      this.shadowRoot.innerHTML = `<ha-card>${warns}</ha-card>${STYLE}${COMPACT_STYLE}`;
+      return;
+    }
+    const items = present.flatMap((a) => a.items);
+    const overdue = items.filter((i) => i.status === "overdue").length;
+    const soon = items.filter((i) => i.status === "today" || i.status === "soon").length;
+    const next = items.map((i) => i.due).filter(Boolean).sort()[0];
+
+    this.shadowRoot.innerHTML = `<ha-card>
+        ${warns}
+        <div class="chiprow" id="chiprow" role="button" tabindex="0">
+          ${this._config.title ? `<span class="ctitle">${esc(this._config.title)}</span>` : ""}
+          <ha-icon icon="${ICONS.book}"></ha-icon>
+          <span class="count">${esc(t.items(items.length))}</span>
+          ${next ? `<span class="next">${esc(`${t.next} ${formatDate(locale, next)}`)}</span>` : ""}
+          ${overdue ? `<span class="badge bad">${esc(t.overdue(overdue))}</span>` : ""}
+          ${soon ? `<span class="badge soon">${esc(t.dueSoonBadge(soon))}</span>` : ""}
+        </div>
+      </ha-card>${STYLE}${COMPACT_STYLE}`;
+    const open = () =>
+      this.dispatchEvent(
+        new CustomEvent("hass-more-info", {
+          detail: { entityId: this._entityIds()[0] },
+          bubbles: true,
+          composed: true,
+        }),
+      );
+    const chip = this.shadowRoot.getElementById("chiprow");
+    chip?.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") open();
+    });
+    chip?.addEventListener("click", open);
+  }
+}
+
+const ACTION_FIELDS = [
+  { name: "entity", required: true, selector: { entity: { filter: { integration: DOMAIN, domain: "sensor" } } } },
+  { name: "entities", selector: { entity: { multiple: true, filter: { integration: DOMAIN, domain: "sensor" } } } },
+  { name: "title", selector: { text: {} } },
+  { name: "show_renew", selector: { boolean: {} } },
+  { name: "show_covers", selector: { boolean: {} } },
+];
+
+const RETURN_FIELDS = [
+  { name: "entity", required: true, selector: { entity: { filter: { integration: DOMAIN, domain: "sensor" } } } },
+  { name: "entities", selector: { entity: { multiple: true, filter: { integration: DOMAIN, domain: "sensor" } } } },
+  { name: "title", selector: { text: {} } },
+  { name: "show_covers", selector: { boolean: {} } },
+];
+
+const LIBRARY_FIELDS = [
+  { name: "entity", required: true, selector: { entity: { filter: { integration: DOMAIN, domain: "sensor" } } } },
+  { name: "entities", selector: { entity: { multiple: true, filter: { integration: DOMAIN, domain: "sensor" } } } },
+  { name: "title", selector: { text: {} } },
+  { name: "show_hours", selector: { boolean: {} } },
+  { name: "show_announcement", selector: { boolean: {} } },
+  { name: "show_card_expiry", selector: { boolean: {} } },
+  { name: "show_last_sync", selector: { boolean: {} } },
+];
+
+const CHIP_FIELDS = [
+  { name: "entity", required: true, selector: { entity: { filter: { integration: DOMAIN, domain: "sensor" } } } },
+  { name: "entities", selector: { entity: { multiple: true, filter: { integration: DOMAIN, domain: "sensor" } } } },
+  { name: "title", selector: { text: {} } },
+];
+
+
 const CARD_FIELDS = [
   { name: "entity", required: true, selector: { entity: { filter: { integration: DOMAIN, domain: "sensor" } } } },
   { name: "entities", selector: { entity: { multiple: true, filter: { integration: DOMAIN, domain: "sensor" } } } },
@@ -764,13 +1268,48 @@ class FindusOpacCardEditor extends HTMLElement {
 if (!customElements.get("findus-opac-card")) {
   customElements.define("findus-opac-card", FindusOpacCard);
   customElements.define("findus-opac-card-editor", FindusOpacCardEditor);
+  customElements.define("findus-opac-action-card", FindusOpacActionCard);
+  customElements.define("findus-opac-return-card", FindusOpacReturnCard);
+  customElements.define("findus-opac-library-card", FindusOpacLibraryCard);
+  customElements.define("findus-opac-chip-card", FindusOpacChipCard);
   window.customCards = window.customCards || [];
-  window.customCards.push({
-    type: "findus-opac-card",
-    name: "Findus Bibliothek",
-    description: "Ausleihen mit Rückgabefristen und Verlängern-Knopf (findus_opac)",
-    preview: true,
-    documentationURL: "https://github.com/ben-epp/ha-findus-opac",
-  });
+  const documentationURL = "https://github.com/ben-epp/ha-findus-opac";
+  window.customCards.push(
+    {
+      type: "findus-opac-card",
+      name: "Findus Bibliothek",
+      description: "Ausleihen mit Rückgabefristen und Verlängern-Knopf (findus_opac)",
+      preview: true,
+      documentationURL,
+    },
+    {
+      type: "findus-opac-action-card",
+      name: "Findus: Action needed",
+      description: "Only the loans that need attention now.",
+      preview: true,
+      documentationURL,
+    },
+    {
+      type: "findus-opac-return-card",
+      name: "Findus: Return trip",
+      description: "What has to go back on the next trip to the library.",
+      preview: true,
+      documentationURL,
+    },
+    {
+      type: "findus-opac-library-card",
+      name: "Findus: Library",
+      description: "Opening hours, notice and card validity, without the loan list.",
+      preview: true,
+      documentationURL,
+    },
+    {
+      type: "findus-opac-chip-card",
+      name: "Findus: Summary",
+      description: "One line: loans, next due date, warnings.",
+      preview: true,
+      documentationURL,
+    },
+  );
   console.info(`%c FINDUS-OPAC-CARD %c ${CARD_VERSION} `, "background:#2e7d32;color:#fff", "");
 }
