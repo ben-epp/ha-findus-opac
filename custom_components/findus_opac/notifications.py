@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from datetime import date, time, timedelta
+from dataclasses import dataclass
+from datetime import date, time
 import logging
 import re
 from typing import Any
@@ -17,7 +18,6 @@ from homeassistant.util import dt as dt_util
 
 from .client import Loan, OpeningHours
 from .const import (
-    CARD_REMINDER_DAYS,
     CONF_NOTIFY_EVENTS,
     CONF_NOTIFY_SHOW_TITLES,
     CONF_NOTIFY_TARGETS,
@@ -27,10 +27,9 @@ from .const import (
     EVENT_RENEWAL,
     NOTIFY_ACTION_PREFIX,
     NOTIFY_EVENTS,
-    NOTIFY_KEEP_DAYS,
 )
 from .coordinator import FindusCoordinator
-from .due import due_status
+from .digest import LAST_RUN_KEY, select_digest
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -187,8 +186,24 @@ def build_renewal_message(
     return t["title"].format(account=account_name), message
 
 
-# Stored next to the dedup keys: the day of the last digest run (for catch-up after restarts).
-LAST_RUN_KEY = "_last_run"
+@dataclass(frozen=True)
+class NotifySettings:
+    """Notification options, parsed once; the notifier only reads them."""
+
+    targets: tuple[str, ...]
+    events: frozenset[str]
+    show_titles: bool
+    at: time
+
+    @classmethod
+    def from_options(cls, options: Mapping[str, Any]) -> NotifySettings:
+        return cls(
+            targets=tuple(options.get(CONF_NOTIFY_TARGETS) or ()),
+            events=frozenset(options.get(CONF_NOTIFY_EVENTS, NOTIFY_EVENTS)),
+            show_titles=bool(options.get(CONF_NOTIFY_SHOW_TITLES, False)),
+            at=dt_util.parse_time(str(options.get(CONF_NOTIFY_TIME, DEFAULT_NOTIFY_TIME)))
+            or time(8, 0),
+        )
 
 
 class FindusNotifier:
@@ -200,12 +215,7 @@ class FindusNotifier:
         entry = coordinator.entry
         opts = entry.options
         self.entry_id = entry.entry_id
-        self.targets: list[str] = list(opts.get(CONF_NOTIFY_TARGETS) or [])
-        self.events: set[str] = set(opts.get(CONF_NOTIFY_EVENTS, NOTIFY_EVENTS))
-        self.show_titles: bool = bool(opts.get(CONF_NOTIFY_SHOW_TITLES, False))
-        self.at: time = dt_util.parse_time(
-            str(opts.get(CONF_NOTIFY_TIME, DEFAULT_NOTIFY_TIME))
-        ) or time(8, 0)
+        self.settings = NotifySettings.from_options(opts)
         self.action = f"{NOTIFY_ACTION_PREFIX}{self.entry_id}"
         self._store = notified_store(hass, self.entry_id)
         self._sent: dict[str, str] | None = None
@@ -218,13 +228,17 @@ class FindusNotifier:
         """Register listeners; returns the combined unsubscribe callback."""
         unsubs = [
             async_track_time_change(
-                self.hass, self._async_daily, hour=self.at.hour, minute=self.at.minute, second=self.at.second
+                self.hass,
+                self._async_daily,
+                hour=self.settings.at.hour,
+                minute=self.settings.at.minute,
+                second=self.settings.at.second,
             ),
             self.hass.bus.async_listen(MOBILE_ACTION_EVENT, self._async_handle_action),
             # HA was down or restarting at notify time: send today's digest once it is up.
             async_at_started(self.hass, self._async_catch_up),
         ]
-        if "renewed" in self.events:
+        if "renewed" in self.settings.events:
             unsubs.append(self.hass.bus.async_listen(EVENT_RENEWAL, self._async_handle_renewal))
 
         @callback
@@ -244,7 +258,10 @@ class FindusNotifier:
 
     async def _async_catch_up(self, _hass: HomeAssistant) -> None:
         sent = await self._async_load()
-        if dt_util.now().time() >= self.at and sent.get(LAST_RUN_KEY) != self.coordinator.today().isoformat():
+        if (
+            dt_util.now().time() >= self.settings.at
+            and sent.get(LAST_RUN_KEY) != self.coordinator.today().isoformat()
+        ):
             await self.async_run()
 
     async def async_run(self) -> None:
@@ -254,73 +271,25 @@ class FindusNotifier:
         if account is None:
             return
         sent = await self._async_load()
-        today = self.coordinator.today()
-        cutoff = (today - timedelta(days=NOTIFY_KEEP_DAYS)).isoformat()
-        for key in [k for k, v in sent.items() if v < cutoff]:
-            del sent[key]
-        sent[LAST_RUN_KEY] = today.isoformat()
-
-        kinds: dict[str, list[Loan]] = {"overdue": [], "due_today": [], "last_chance": [], "due_soon": []}
-        new_keys: list[str] = []
-        for loan in account.loans:
-            status = due_status(loan, today, self.coordinator.due_soon_days)
-            if status == "overdue":
-                kind, key = "overdue", f"overdue:{loan.mednr}:{loan.due}:{today}"
-            elif status == "today":
-                kind, key = "due_today", f"due_today:{loan.mednr}:{loan.due}"
-            elif status == "soon":
-                kind, key = "due_soon", f"due_soon:{loan.mednr}:{loan.due}"
-            else:
-                kind, key = "", ""
-            if kind in self.events and key not in sent:
-                kinds[kind].append(loan)
-                new_keys.append(key)
-            if self._is_last_chance(loan, today):
-                key = f"last_chance:{loan.mednr}:{loan.due}"
-                if key not in sent:
-                    new_keys.append(key)
-                    # Already listed as due soon: that line names the last opening too.
-                    if loan not in kinds["due_soon"]:
-                        kinds["last_chance"].append(loan)
-
-        card_until = None
-        until = account.card_valid_until
-        if "card_expiry" in self.events and until is not None:
-            left = (until - today).days
-            due_keys = [f"card{n}:{until}" for n in CARD_REMINDER_DAYS if left <= n]
-            if any(k not in sent for k in due_keys):
-                card_until = until
-                new_keys.extend(k for k in due_keys if k not in sent)
-
-        if not new_keys:
-            await self._store.async_save(sent)
-            return
-        texts = await self._async_texts()
-        title, message = build_message(
-            texts, self.coordinator.account_name, kinds, card_until, today, self.show_titles, self.coordinator.hours
+        now = dt_util.now()
+        digest = select_digest(
+            account, sent, now, self.coordinator.hours,
+            self.settings.events, self.coordinator.due_soon_days,
         )
-        renewable = any(l.renewable for group in kinds.values() for l in group)
-        await self._async_send(title, message, action_title=texts["action"] if renewable else None)
-        for key in new_keys:
-            sent[key] = today.isoformat()
-        await self._store.async_save(sent)
-
-    def _is_last_chance(self, loan: Loan, today: date) -> bool:
-        """Today is the last regular opening before a closed due date, and it has to come back."""
-        hours = self.coordinator.hours
-        if (
-            "last_chance" not in self.events
-            or hours is None
-            or loan.renewable
-            or loan.renew_requested
-            or loan.due <= today
-        ):
-            return False
-        last = hours.last_open_before(loan.due)
-        return last is not None and last[0] == today and dt_util.now().time() < last[1]
+        self._sent = digest.sent
+        if digest.has_news:
+            texts = await self._async_texts()
+            title, message = build_message(
+                texts, self.coordinator.account_name, digest.loans_by_kind,
+                digest.card_until, now.date(), self.settings.show_titles,
+                self.coordinator.hours,
+            )
+            action_title = texts["action"] if digest.renewable else None
+            await self._async_send(title, message, action_title=action_title)
+        await self._store.async_save(digest.sent)
 
     async def _async_send(self, title: str, message: str, action_title: str | None = None) -> None:
-        for target in self.targets:
+        for target in self.settings.targets:
             if not self.hass.services.has_service("notify", target):
                 _LOGGER.warning("Notify service notify.%s not found; skipping", target)
                 continue
@@ -354,7 +323,7 @@ class FindusNotifier:
             self.coordinator.account_name,
             data["items"],
             data.get("trigger", "manual"),
-            self.show_titles,
+            self.settings.show_titles,
         )
         if message:
             await self._async_send(title, message)
