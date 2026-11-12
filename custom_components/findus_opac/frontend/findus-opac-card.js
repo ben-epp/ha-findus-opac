@@ -244,6 +244,10 @@ const hoursStatus = (t, open, locale) => {
     : t.hoursUnsure;
 };
 
+/** Hours a card can trust: an on/off sensor with a weekly table, as the big card requires. */
+const hoursUsable = (open) =>
+  ["on", "off"].includes(open?.state) && Boolean(open?.attributes?.hours);
+
 /** Missing or broken cover: fall back to the media-type icon. */
 const bindCoverFallbacks = (root) => {
   root.querySelectorAll("img.cover").forEach((img) => {
@@ -762,12 +766,45 @@ class FindusOpacCompactCard extends HTMLElement {
   setConfig(config) {
     validateConfig(config);
     this._config = { ...this.constructor.defaults, ...config };
+    this._lastKey = undefined;
     this._render();
   }
 
   set hass(hass) {
     this._hass = hass;
     this._render();
+  }
+
+  /** True when something the card shows may have changed; hass updates arrive constantly. */
+  _changed() {
+    const key = JSON.stringify([
+      this._accounts().map((a) => [
+        a.st?.last_updated,
+        a.st?.state,
+        a.name,
+        a.entryId,
+        a.card?.state,
+        a.card?.attributes?.days_left,
+        a.cardSoon?.state,
+        a.notice?.last_updated,
+        a.sync?.state,
+        a.open?.state,
+        JSON.stringify(a.open?.attributes ?? null),
+      ]),
+      this._config,
+      lang(this._hass),
+      this._busyItem,
+      [...(this._noticeOpen || [])],
+      ...this._keyParts(),
+    ]);
+    if (key === this._lastKey) return false;
+    this._lastKey = key;
+    return true;
+  }
+
+  /** Parts only one card depends on; the date matters where the render depends on "now". */
+  _keyParts() {
+    return [];
   }
 
   _entityIds() {
@@ -859,6 +896,7 @@ class FindusOpacActionCard extends FindusOpacCompactCard {
   _render() {
     if (!this._hass || !this._config) return;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    if (!this._changed()) return;
     const t = TEXT[lang(this._hass)];
     const locale = this._hass.locale?.language || "de";
     const { present, empty, html: warns } = this._warnings(t);
@@ -939,9 +977,15 @@ class FindusOpacReturnCard extends FindusOpacCompactCard {
     return { columns: 6, min_columns: 3, min_rows: 1 };
   }
 
+  /** The return window depends on today, so a new day needs a new render. */
+  _keyParts() {
+    return [isoDate(new Date())];
+  }
+
   _render() {
     if (!this._hass || !this._config) return;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    if (!this._changed()) return;
     const t = TEXT[lang(this._hass)];
     const locale = this._hass.locale?.language || "de";
     const { present, empty, html: warns } = this._warnings(t);
@@ -980,9 +1024,11 @@ class FindusOpacReturnCard extends FindusOpacCompactCard {
     let body = "";
     for (const [lib, a] of libraries) {
       const prefix = named && lib ? `${lib}: ` : "";
-      body += `<div class="hstatus ${a.open?.state === "on" ? "isopen" : ""}">
-          <ha-icon icon="mdi:clock-outline"></ha-icon>${esc(prefix + hoursStatus(t, a.open, locale))}
-        </div>`;
+      if (hoursUsable(a.open)) {
+        body += `<div class="hstatus ${a.open.state === "on" ? "isopen" : ""}">
+            <ha-icon icon="mdi:clock-outline"></ha-icon>${esc(prefix + hoursStatus(t, a.open, locale))}
+          </div>`;
+      }
       body += rows.filter((r) => r.acct.library === lib).map(row).join("");
     }
     if (!rows.length) body += `<div class="empty">${esc(t.nothingToReturn)}</div>`;
@@ -1020,6 +1066,7 @@ class FindusOpacLibraryCard extends FindusOpacCompactCard {
   _render() {
     if (!this._hass || !this._config) return;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    if (!this._changed()) return;
     const t = TEXT[lang(this._hass)];
     const locale = this._hass.locale?.language || "de";
     const all = this._accounts();
@@ -1044,18 +1091,18 @@ class FindusOpacLibraryCard extends FindusOpacCompactCard {
       const a = accts[0];
       const prefix = named && lib ? `${lib}: ` : "";
       const ha = a.open?.attributes;
-      let block = `<div class="libblock">
-          <div class="hstatus ${a.open?.state === "on" ? "isopen" : ""}">
+      let block = `<div class="libblock">`;
+      if (this._config.show_hours && hoursUsable(a.open)) {
+        block += `<div class="hstatus ${a.open.state === "on" ? "isopen" : ""}">
             <ha-icon icon="mdi:clock-outline"></ha-icon>${esc(prefix + hoursStatus(t, a.open, locale))}
           </div>`;
-      if (this._config.show_hours && ha?.hours && a.open?.state !== "unavailable") {
         const dayName = (i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" }); // 2024-01-01 is a Monday
         const week = Object.entries(ha.hours).map(([day, times], i) => `<tr><td>${esc(dayName(i))}</td><td>${esc(
           (ha.conditional_days || []).includes(day) ? [...times, t.hoursCond].join(", ") : times.join(", ") || t.hoursDayClosed,
         )}</td></tr>`).join("");
         block += `<table class="hweek">${week}</table>${ha.note ? `<div class="hint">${esc(ha.note)}</div>` : ""}`;
+        block += `<div class="hint">${esc(t.hoursHint)}</div>`;
       }
-      if (this._config.show_hours) block += `<div class="hint">${esc(t.hoursHint)}</div>`;
       if (this._config.show_announcement) {
         block += noticeBlock(a.notice, lib, t, this._noticeOpen.has(lib), prefix);
       }
@@ -1121,6 +1168,7 @@ class FindusOpacChipCard extends FindusOpacCompactCard {
   _render() {
     if (!this._hass || !this._config) return;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    if (!this._changed()) return;
     const t = TEXT[lang(this._hass)];
     const locale = this._hass.locale?.language || "de";
     const { present, empty, html: warns } = this._warnings(t);

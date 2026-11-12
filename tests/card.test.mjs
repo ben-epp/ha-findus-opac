@@ -11,17 +11,28 @@ globalThis.customElements = { get: (n) => defined[n], define: (n, c) => (defined
 globalThis.HTMLElement = class {
   attachShadow() {
     const handlers = {};
-    this.shadowRoot = {
-      innerHTML: "",
+    let html = "";
+    const root = {
       handlers,
+      childNodes: [],
       querySelector: () => null,
       querySelectorAll: () => [],
       getElementById: (id) =>
-        this.shadowRoot.innerHTML.includes(`id="${id}"`)
+        html.includes(`id="${id}"`)
           ? { addEventListener: (_ev, fn) => (handlers[id] = fn) }
           : null,
     };
-    return this.shadowRoot;
+    // A real DOM parses innerHTML into child nodes; the tests only need to see whether
+    // a render replaced them.
+    Object.defineProperty(root, "innerHTML", {
+      get: () => html,
+      set: (value) => {
+        html = value;
+        root.childNodes = [{ nodeName: "HA-CARD" }];
+      },
+    });
+    this.shadowRoot = root;
+    return root;
   }
   dispatchEvent() {}
 };
@@ -439,4 +450,57 @@ test("every compact card needs a loans sensor", () => {
     assert.throws(() => new CardClass().setConfig({}), /entity is required/);
     assert.doesNotThrow(() => new CardClass().setConfig({ entity: "sensor.a" }));
   }
+});
+
+// ---- render skipping ----
+
+test("compact cards keep their DOM when nothing they show changed", () => {
+  const cards = [
+    [ActionCard, {}],
+    [ReturnCard, {}],
+    [LibraryCard, {}],
+    [ChipCard, {}],
+  ];
+  for (const [CardClass, extra] of cards) {
+    const hass = makeHass([
+      ["Lena", "alzey", [item("Bald", day(2), 2, { status: "soon" })]],
+    ]);
+    const card = renderWith(CardClass, { entity: "sensor.lena_loans", ...extra }, hass);
+    const node = card.shadowRoot.childNodes[0];
+    assert.ok(node, `${CardClass.name} rendered`);
+
+    card.hass = hass;
+    assert.equal(card.shadowRoot.childNodes[0], node, `${CardClass.name}: unchanged hass`);
+
+    hass.states["sensor.unrelated"] = {
+      entity_id: "sensor.unrelated", state: "42", attributes: {}, last_updated: "y",
+    };
+    card.hass = hass;
+    assert.equal(card.shadowRoot.childNodes[0], node, `${CardClass.name}: unrelated state change`);
+
+    hass.states["sensor.lena_loans"] = {
+      ...hass.states["sensor.lena_loans"], last_updated: "y",
+    };
+    card.hass = hass;
+    assert.notEqual(card.shadowRoot.childNodes[0], node, `${CardClass.name}: visible change`);
+  }
+});
+
+// ---- unknown opening hours ----
+
+test("return and library cards do not guess when opening hours are unavailable", () => {
+  const open = { state: "unavailable", attributes: {} };
+
+  const returnHass = makeHass([
+    ["Lena", "alzey", [item("Heute", day(0), 0, { status: "today" })], 400, undefined, open],
+  ]);
+  const returnHtml = renderWith(ReturnCard, { entity: "sensor.lena_loans" }, returnHass).shadowRoot.innerHTML;
+  assert.doesNotMatch(returnHtml, /Vorbehalt/);
+  assert.doesNotMatch(returnHtml, /class="hstatus/);
+  assert.match(returnHtml, /Heute</); // the fallback rule still lists it
+
+  const libraryHass = makeHass([["Lena", "alzey", [], 400, undefined, open]]);
+  const libraryHtml = renderWith(LibraryCard, { entity: "sensor.lena_loans" }, libraryHass).shadowRoot.innerHTML;
+  assert.doesNotMatch(libraryHtml, /Vorbehalt/);
+  assert.doesNotMatch(libraryHtml, /class="hstatus/);
 });
