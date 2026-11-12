@@ -11,6 +11,7 @@ from unittest.mock import patch
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_capture_events
 
 from custom_components.findus_opac.client import FindusClient
+from custom_components.findus_opac.renewal_requests import pending_until
 
 from custom_components.findus_opac.const import (
     CONF_AUTO_RENEW,
@@ -116,7 +117,7 @@ async def test_pending_request_survives_findus_forgetting_it(hass, opac, make_en
 async def test_pending_request_retried_once_after_library_had_time(hass, opac, make_entry, freezer):
     entry = await make_entry(**{CONF_AUTO_RENEW: True, CONF_AUTO_RENEW_DAYS: 2})
     await _setup(hass, entry)
-    until = entry.runtime_data.pending_until(date(2026, 11, 6))
+    until = pending_until(date(2026, 11, 6), entry.runtime_data.hours)
     freezer.tick(86400 * (until - date(2026, 11, 6)).days)
     await _refresh(hass, entry)
     assert len(renew_posts(opac)) == 1  # still pending on its last day

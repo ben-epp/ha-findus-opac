@@ -30,8 +30,9 @@ from .const import (
     DOMAIN,
     SERVICE_RENEW,
 )
-from .coordinator import FindusConfigEntry, FindusCoordinator, outcome_dict, requests_store
+from .coordinator import FindusConfigEntry, FindusCoordinator, outcome_dict
 from .notifications import FindusNotifier, notified_store
+from .renewal_requests import requests_store
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ async def _async_ensure_lovelace_resource(hass: HomeAssistant, url: str) -> None
 
 async def async_setup_entry(hass: HomeAssistant, entry: FindusConfigEntry) -> bool:
     coordinator = FindusCoordinator(hass, entry)
-    await coordinator.async_load_requests()
+    await coordinator.requests.async_load()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

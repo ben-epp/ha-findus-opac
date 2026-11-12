@@ -292,6 +292,19 @@ class OpeningHours:
                 return d, day.intervals[-1][1]
         return None
 
+    def nth_open_day_after(self, day: date, n: int, horizon: int = 14) -> date | None:
+        """The n-th day after `day` with regular hours (conditional days count as open),
+        looking at most `horizon` days ahead; None if there is none."""
+        open_days = 0
+        for offset in range(1, horizon + 1):
+            d = day + timedelta(days=offset)
+            hours = self.days.get(d.weekday())
+            if hours and (hours.intervals or hours.conditional):
+                open_days += 1
+                if open_days == n:
+                    return d
+        return None
+
 
 def _parse_day_cell(cell: str) -> tuple[list[tuple[time, time]], bool]:
     """Intervals in one table cell, and whether free text makes them conditional."""

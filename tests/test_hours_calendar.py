@@ -99,6 +99,16 @@ def test_last_open_before():
     assert hours.last_open_before(date(2026, 11, 8)) is None
 
 
+def test_nth_open_day_after():
+    hours = parse_opening_hours(WEEK)
+    # Closed Sunday, open Monday, closed Tuesday: the conditional Saturday counts as open.
+    assert hours.nth_open_day_after(date(2026, 11, 3), 2) == date(2026, 11, 7)
+    assert hours.nth_open_day_after(date(2026, 11, 7), 1) == date(2026, 11, 9)
+    mondays = parse_opening_hours(MONDAYS_ONLY)
+    assert mondays.nth_open_day_after(date(2026, 11, 4), 2) == date(2026, 11, 16)
+    assert mondays.nth_open_day_after(date(2026, 11, 4), 1, horizon=4) is None
+
+
 def test_parse_last_sync():
     page = "letztes Datenbankupdate: 20.10.2026, 17:01 Uhr. 31 Zugriffe"
     assert parse_last_sync(page) == datetime(2026, 10, 20, 17, 1)
