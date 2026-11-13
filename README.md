@@ -153,6 +153,8 @@ Karte `entity` und optional `entities` für die Familienansicht.
 **Zu erledigen:** nur überfällige, heute und bald fällige Medien aus allen Ausweisen, mit
 Verlängern-Knopf pro Medium.
 
+<img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-action.png" alt="Karte Zu erledigen: überfällige und bald fällige Medien zweier Kinder mit Verlängern-Knöpfen" width="360">
+
 ```yaml
 type: custom:findus-opac-action-card
 entity: sensor.lena_ausleihen
@@ -165,6 +167,8 @@ show_covers: false          # Coverbilder
 **Zurückbringen:** was auf dem nächsten Weg in die Bücherei mit muss – nicht verlängerbare
 Medien, die vor dem übernächsten Öffnungstag fällig werden.
 
+<img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-return.png" alt="Karte Zurückbringen: drei Medien für den nächsten Büchereibesuch" width="360">
+
 ```yaml
 type: custom:findus-opac-return-card
 entity: sensor.lena_ausleihen
@@ -173,6 +177,8 @@ show_covers: false
 
 **Bücherei:** Öffnungszeiten, Mitteilung und Ausweis-Gültigkeit ohne Medienliste, einmal
 pro Bücherei.
+
+<img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-library.png" alt="Karte Bücherei: Öffnungszeiten, Mitteilung, Ausweis-Gültigkeit und Datenstand" width="360">
 
 ```yaml
 type: custom:findus-opac-library-card
@@ -185,6 +191,8 @@ show_last_sync: true
 
 **Kurzübersicht:** eine Zeile mit der Anzahl der Medien, der nächsten Rückgabe und
 Warnungen zu überfälligen und bald fälligen Medien.
+
+<img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-chip.png" alt="Kurzübersicht: Anzahl der Medien, nächste Rückgabe, Warnungen" width="480">
 
 ```yaml
 type: custom:findus-opac-chip-card

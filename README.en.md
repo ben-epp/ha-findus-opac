@@ -151,6 +151,8 @@ take `entity` and optionally `entities` for the family view.
 **Action needed:** only overdue, due-today and soon-due items across all cards, with a renew
 button per item.
 
+<img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-action.png" alt="Action needed card: overdue and soon-due loans of two children with renew buttons" width="360">
+
 ```yaml
 type: custom:findus-opac-action-card
 entity: sensor.lena_loans
@@ -163,6 +165,8 @@ show_covers: false          # cover images
 **Return trip:** what has to go back on the next trip to the library – items that are not
 renewable and fall due before the opening day after next.
 
+<img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-return.png" alt="Return trip card: three items for the next library visit" width="360">
+
 ```yaml
 type: custom:findus-opac-return-card
 entity: sensor.lena_loans
@@ -170,6 +174,8 @@ show_covers: false
 ```
 
 **Library:** opening hours, notice and card validity without the loan list, once per library.
+
+<img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-library.png" alt="Library card: opening hours, notice, card validity and data date" width="360">
 
 ```yaml
 type: custom:findus-opac-library-card
@@ -182,6 +188,8 @@ show_last_sync: true
 
 **Summary:** one line with the number of items, the next due date and warnings about overdue
 and soon-due items.
+
+<img src="https://raw.githubusercontent.com/ben-epp/ha-findus-opac/main/images/card-chip.png" alt="Summary card: number of loans, next due date, warnings" width="480">
 
 ```yaml
 type: custom:findus-opac-chip-card

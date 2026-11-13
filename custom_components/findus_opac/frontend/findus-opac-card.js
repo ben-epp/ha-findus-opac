@@ -1162,7 +1162,7 @@ class FindusOpacChipCard extends FindusOpacCompactCard {
   }
 
   getGridOptions() {
-    return { columns: 6, min_columns: 3, rows: 1, min_rows: 1 };
+    return { columns: 12, min_columns: 9, rows: 1, min_rows: 1 };
   }
 
   _render() {
