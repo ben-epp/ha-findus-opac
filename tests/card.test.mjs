@@ -429,9 +429,13 @@ test("summary card totals loans and badges across accounts", () => {
   ).shadowRoot.innerHTML;
   assert.match(html, /4 Medien/);
   assert.match(html, /nächste Rückgabe/);
-  assert.match(html, /1 überfällig/);
+  assert.match(html, /1 überfällig seit /);
   assert.match(html, /2 bald fällig/);
   assert.doesNotMatch(html, /<button|verlängerbar/);
+  // The overdue date sits in its badge; "next due" is the earliest date not yet passed.
+  const fmt = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("de", { weekday: "short", day: "numeric", month: "numeric" });
+  assert.ok(html.includes(`überfällig seit ${fmt(day(-2))}`));
+  assert.ok(html.includes(`nächste Rückgabe ${fmt(day(0))}`));
 });
 
 test("summary card opens the first loans sensor on tap", () => {
