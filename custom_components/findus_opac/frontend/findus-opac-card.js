@@ -31,6 +31,7 @@ const TEXT = {
     loans: "Ausleihen",
     none: "Keine Ausleihen – alles zurückgegeben.",
     overdue: (n) => `${n} überfällig`,
+    overdueSince: (n, d) => `${n} überfällig seit ${d}`,
     today: "heute fällig",
     tomorrow: "morgen fällig",
     inDays: (n) => `in ${n} Tagen`,
@@ -79,6 +80,7 @@ const TEXT = {
     loans: "Loans",
     none: "No loans – everything returned.",
     overdue: (n) => `${n} overdue`,
+    overdueSince: (n, d) => `${n} overdue since ${d}`,
     today: "due today",
     tomorrow: "due tomorrow",
     inDays: (n) => `in ${n} days`,
@@ -1177,9 +1179,12 @@ class FindusOpacChipCard extends FindusOpacCompactCard {
       return;
     }
     const items = present.flatMap((a) => a.items);
-    const overdue = items.filter((i) => i.status === "overdue").length;
+    const late = items.filter((i) => i.status === "overdue");
+    const overdue = late.length;
+    const since = late.map((i) => i.due).filter(Boolean).sort()[0];
     const soon = items.filter((i) => i.status === "today" || i.status === "soon").length;
-    const next = items.map((i) => i.due).filter(Boolean).sort()[0];
+    // Overdue items get their own badge with their date; "next due" looks ahead.
+    const next = items.filter((i) => i.status !== "overdue").map((i) => i.due).filter(Boolean).sort()[0];
 
     this.shadowRoot.innerHTML = `<ha-card>
         ${warns}
@@ -1188,7 +1193,7 @@ class FindusOpacChipCard extends FindusOpacCompactCard {
           <ha-icon icon="${ICONS.book}"></ha-icon>
           <span class="count">${esc(t.items(items.length))}</span>
           ${next ? `<span class="next">${esc(`${t.next} ${formatDate(locale, next)}`)}</span>` : ""}
-          ${overdue ? `<span class="badge bad">${esc(t.overdue(overdue))}</span>` : ""}
+          ${overdue ? `<span class="badge bad">${esc(since ? t.overdueSince(overdue, formatDate(locale, since)) : t.overdue(overdue))}</span>` : ""}
           ${soon ? `<span class="badge soon">${esc(t.dueSoonBadge(soon))}</span>` : ""}
         </div>
       </ha-card>${STYLE}${COMPACT_STYLE}`;
