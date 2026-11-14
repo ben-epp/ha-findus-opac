@@ -1,6 +1,6 @@
 # Changelog
 
-## Unveröffentlicht
+## 0.10.0 – 2026-11-14
 
 - **Neue Karte „Zu erledigen“:** zeigt nur überfällige, heute und bald fällige Medien aus
   allen Ausweisen, mit Verlängern-Knopf pro Medium.
@@ -10,6 +10,9 @@
   Medienliste, einmal pro Bücherei.
 - **Neue Karte „Kurzübersicht“:** eine Zeile mit Anzahl der Medien, nächster Rückgabe und
   Warnungen zu überfälligen und bald fälligen Medien.
+- Jedes Medium im Attribut `items` des Ausleihen-Sensors hat jetzt ein Feld `status`
+  (`overdue`, `today`, `soon`, `later`), passend zu „Bald fällig“ in den Optionen – praktisch
+  für eigene Automationen und Vorlagen.
 
 ## 0.9.1 – 2026-11-10
 

@@ -54,4 +54,4 @@ RENEW_RECHECK_MINUTES = 30
 # Bundled Lovelace card (frontend/findus-opac-card.js); bump CARD_VERSION to bust browser caches.
 CARD_FILE = "findus-opac-card.js"
 CARD_URL = f"/{DOMAIN}/{CARD_FILE}"
-CARD_VERSION = "0.9.1"
+CARD_VERSION = "0.10.0"
